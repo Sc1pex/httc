@@ -1,0 +1,6 @@
+build/
+.cache/
+
+# vcpkg build artifacts
+vcpkg_installed/
+*.log

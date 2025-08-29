@@ -1,0 +1,8 @@
+{
+  "dependencies": [
+    {
+      "name": "uvw",
+      "version>=": "3.2.0"
+    }
+  ]
+}
