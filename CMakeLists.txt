@@ -15,7 +15,8 @@ add_library(httc STATIC)
 target_include_directories(httc PUBLIC include)
 target_sources(httc 
     PUBLIC
-        src/httc.cpp
+        src/server.cpp
 )
+target_link_libraries(httc PUBLIC uvw::uvw)
 
 add_subdirectory(test)
