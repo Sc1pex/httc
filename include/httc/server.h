@@ -1,18 +1,19 @@
 #pragma once
 
-#include <memory>
 #include <string>
 #include <uvw.hpp>
+#include "httc/common.h"
+#include "httc/request.h"
 
 namespace httc {
 
-template<typename T>
-using sp = std::shared_ptr<T>;
+using request_handler_fn = std::function<void(Request)>;
 
 class Server {
 public:
     Server(sp<uvw::loop> loop);
 
+    void set_request_handler(request_handler_fn handler);
     void bind_and_listen(const std::string& addr, unsigned int port);
 
 private:
@@ -20,6 +21,7 @@ private:
 
 private:
     sp<uvw::loop> m_loop;
+    request_handler_fn m_req_handler;
 };
 
 }

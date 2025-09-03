@@ -1,7 +1,7 @@
 #include "httc/server.h"
-#include <uvw/stream.h>
 #include <memory>
-#include <random>
+#include <print>
+#include "httc/request_parser.h"
 
 namespace httc {
 
@@ -32,36 +32,25 @@ void Server::handle_conn(uvw::tcp_handle& tcp) {
     auto client = m_loop->resource<uvw::tcp_handle>();
     tcp.accept(*client);
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<int> dist(1, 100);
-    auto target = std::make_shared<int>(dist(gen));
+    auto req_parser = std::make_shared<RequestParser>();
 
-    client->on<uvw::data_event>([client, target](const uvw::data_event& ev, uvw::tcp_handle&) {
-        std::string guess_str = std::string(ev.data.get(), ev.length);
-
-        try {
-            int guess = std::stoi(guess_str);
-
-            if (guess == *target) {
-                write_fmt(client, "Correct! The number was {}\n", *target);
-                client->shutdown();
-            } else if (guess < *target) {
-                write_fmt(client, "Too low! Try again.\n");
-            } else {
-                write_fmt(client, "Too high! Try again.\n");
-            }
-        } catch (...) {
-            write_fmt(client, "Invalid number\n");
+    auto handle_data = [this, client, req_parser](const uvw::data_event& ev, uvw::tcp_handle&) {
+        auto req_opt = req_parser->parse_chunk(ev.data.get(), ev.length);
+        if (req_opt) {
+            m_req_handler(*req_opt);
         }
-    });
+    };
+    client->on<uvw::data_event>(handle_data);
 
     client->on<uvw::end_event>([](const uvw::end_event&, uvw::tcp_handle& c) {
         c.close();
     });
 
-    write_fmt(client, "Guess the number between 1 and 100\n");
     client->read();
+}
+
+void Server::set_request_handler(request_handler_fn handler) {
+    m_req_handler = handler;
 }
 
 }

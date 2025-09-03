@@ -16,6 +16,8 @@ target_include_directories(httc PUBLIC include)
 target_sources(httc 
     PUBLIC
         src/server.cpp
+        src/request.cpp
+        src/request_parser.cpp
 )
 target_link_libraries(httc PUBLIC uvw::uvw)
 
