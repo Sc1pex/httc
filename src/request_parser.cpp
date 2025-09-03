@@ -1,5 +1,4 @@
 #include "httc/request_parser.h"
-#include <print>
 #include <ranges>
 
 namespace httc {
@@ -48,7 +47,15 @@ bool RequestParser::feed_line(std::string_view line) {
     } else if (m_state == State::PARSE_HEADERS) {
         if (line.empty()) {
             // End of headers
-            m_state = State::PARSE_BODY;
+            // m_state = State::PARSE_BODY;
+
+            // TODO: Read the request body
+            m_state = State::PARSE_REQUEST_LINE;
+            m_complete_req = m_req;
+            m_buffer = {};
+            m_req = Request(); // Reset for next request
+
+            return true;
         } else {
             // Split the header line by ": "
             auto parts = std::views::split(line, std::string_view(": "));

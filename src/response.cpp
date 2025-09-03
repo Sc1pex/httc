@@ -12,6 +12,7 @@ void write_fmt(
 
 void Response::write(sp<uvw::tcp_handle> client) {
     write_fmt(client, "HTTP/1.1 {}\r\n", m_status);
+    write_fmt(client, "Content-Length: 0\r\n");
     write_fmt(client, "\r\n");
 }
 

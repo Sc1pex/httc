@@ -4,10 +4,10 @@
 #include "httc/server.h"
 
 httc::Response handle_req(httc::Request req) {
-    std::println("Got request: {}", req);
+    std::println("Got request: {}\n", req);
 
     httc::Response resp;
-    resp.set_status(123);
+    resp.set_status(200);
 
     return resp;
 }
