@@ -4,10 +4,11 @@
 #include <uvw.hpp>
 #include "httc/common.h"
 #include "httc/request.h"
+#include "httc/response.h"
 
 namespace httc {
 
-using request_handler_fn = std::function<void(Request)>;
+using request_handler_fn = std::function<Response(Request)>;
 
 class Server {
 public:

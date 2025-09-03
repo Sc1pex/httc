@@ -15,9 +15,10 @@ add_library(httc STATIC)
 target_include_directories(httc PUBLIC include)
 target_sources(httc 
     PUBLIC
-        src/server.cpp
+        src/response.cpp
         src/request.cpp
         src/request_parser.cpp
+        src/server.cpp
 )
 target_link_libraries(httc PUBLIC uvw::uvw)
 

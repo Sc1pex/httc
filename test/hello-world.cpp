@@ -1,9 +1,15 @@
 #include <print>
 #include <uvw.hpp>
+#include "httc/response.h"
 #include "httc/server.h"
 
-void handle_req(httc::Request req) {
+httc::Response handle_req(httc::Request req) {
     std::println("Got request: {}", req);
+
+    httc::Response resp;
+    resp.set_status(123);
+
+    return resp;
 }
 
 int main() {

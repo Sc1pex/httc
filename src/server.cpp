@@ -1,17 +1,8 @@
 #include "httc/server.h"
 #include <memory>
-#include <print>
 #include "httc/request_parser.h"
 
 namespace httc {
-
-template<typename... Args>
-void write_fmt(
-    std::shared_ptr<uvw::tcp_handle> client, std::format_string<Args...> fmt, Args&&... args
-) {
-    auto s = std::format(fmt, std::forward<Args>(args)...);
-    client->write(s.data(), s.size());
-}
 
 Server::Server(sp<uvw::loop> loop) : m_loop(loop) {
 }
@@ -37,7 +28,8 @@ void Server::handle_conn(uvw::tcp_handle& tcp) {
     auto handle_data = [this, client, req_parser](const uvw::data_event& ev, uvw::tcp_handle&) {
         auto req_opt = req_parser->parse_chunk(ev.data.get(), ev.length);
         if (req_opt) {
-            m_req_handler(*req_opt);
+            auto resp = m_req_handler(*req_opt);
+            resp.write(client);
         }
     };
     client->on<uvw::data_event>(handle_data);
