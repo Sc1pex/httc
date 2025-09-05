@@ -2,17 +2,20 @@
 
 #include <uvw/tcp.h>
 #include "httc/common.h"
+#include "httc/status.h"
 
 namespace httc {
 
 class Response {
 public:
-    void set_status(int status);
+    Response();
+
+    void set_status(StatusCode code);
 
     void write(sp<uvw::tcp_handle> client);
 
 private:
-    int m_status;
+    StatusCode m_status;
 };
 
 }

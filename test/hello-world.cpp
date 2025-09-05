@@ -2,12 +2,13 @@
 #include <uvw.hpp>
 #include "httc/response.h"
 #include "httc/server.h"
+#include "httc/status.h"
 
 httc::Response handle_req(httc::Request req) {
     std::println("Got request: {}\n", req);
 
     httc::Response resp;
-    resp.set_status(200);
+    resp.set_status(httc::StatusCode::OK);
 
     return resp;
 }
@@ -18,6 +19,7 @@ int main() {
 
     server.set_request_handler(handle_req);
 
-    std::println("Listening on port 1234");
-    server.bind_and_listen("0.0.0.0", 1234);
+    unsigned int port = 1234;
+    std::println("Listening on port {}", port);
+    server.bind_and_listen("0.0.0.0", port);
 }

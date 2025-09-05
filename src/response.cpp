@@ -1,4 +1,5 @@
 #include "httc/response.h"
+#include "httc/status.h"
 
 namespace httc {
 
@@ -10,14 +11,17 @@ void write_fmt(
     client->write(s.data(), s.size());
 }
 
+Response::Response() : m_status(StatusCode::OK) {
+}
+
 void Response::write(sp<uvw::tcp_handle> client) {
-    write_fmt(client, "HTTP/1.1 {}\r\n", m_status);
+    write_fmt(client, "HTTP/1.1 {}\r\n", m_status.code);
     write_fmt(client, "Content-Length: 0\r\n");
     write_fmt(client, "\r\n");
 }
 
-void Response::set_status(int status) {
-    m_status = status;
+void Response::set_status(StatusCode code) {
+    m_status = code;
 }
 
 }
