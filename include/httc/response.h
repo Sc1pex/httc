@@ -9,8 +9,9 @@ namespace httc {
 class Response {
 public:
     Response();
+    static Response from_status(StatusCode status);
 
-    void set_status(StatusCode code);
+    void set_status(StatusCode status);
 
     void write(sp<uvw::tcp_handle> client);
 

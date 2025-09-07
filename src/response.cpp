@@ -20,8 +20,14 @@ void Response::write(sp<uvw::tcp_handle> client) {
     write_fmt(client, "\r\n");
 }
 
-void Response::set_status(StatusCode code) {
-    m_status = code;
+void Response::set_status(StatusCode status) {
+    m_status = status;
+}
+
+Response Response::from_status(StatusCode status) {
+    Response r;
+    r.m_status = status;
+    return r;
 }
 
 }

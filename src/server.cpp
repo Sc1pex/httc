@@ -1,6 +1,7 @@
 #include "httc/server.h"
-#include <memory>
 #include "httc/request_parser.h"
+#include "httc/response.h"
+#include "httc/status.h"
 
 namespace httc {
 
@@ -25,15 +26,18 @@ void Server::handle_conn(uvw::tcp_handle& tcp) {
 
     auto req_parser = std::make_shared<RequestParser>();
 
-    auto handle_data = [this, client, req_parser](const uvw::data_event& ev, uvw::tcp_handle&) {
-        auto req_opt = req_parser->parse_chunk(ev.data.get(), ev.length);
-        if (req_opt) {
-            auto resp = m_req_handler(*req_opt);
-            resp.write(client);
-        }
-    };
-    client->on<uvw::data_event>(handle_data);
+    req_parser->set_on_request_complete([this, client](const Request& req) {
+        auto resp = m_req_handler(req);
+        resp.write(client);
+    });
+    req_parser->set_on_error([client](RequestParserError err) {
+        auto resp = Response::from_status(StatusCode::BAD_REQUEST);
+        client->close();
+    });
 
+    client->on<uvw::data_event>([req_parser](const uvw::data_event& ev, uvw::tcp_handle&) {
+        req_parser->feed_data(ev.data.get(), ev.length);
+    });
     client->on<uvw::end_event>([](const uvw::end_event&, uvw::tcp_handle& c) {
         c.close();
     });
