@@ -1,16 +1,21 @@
 #include "httc/request_parser.h"
+#include <charconv>
+#include <expected>
+#include <functional>
+#include "httc/status.h"
 
 namespace httc {
+
+const std::size_t MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
 
 void RequestParser::feed_data(const char* data, std::size_t length) {
     m_buffer.append(data, length);
 
-    auto maybe_send_error = [this](std::expected<void, RequestParserError> res) {
+    auto maybe_send_error = [this](ParseResult res) {
         if (!res.has_value()) {
             if (m_on_error) {
                 m_on_error(res.error());
             }
-
             reset();
         }
     };
@@ -23,15 +28,18 @@ void RequestParser::feed_data(const char* data, std::size_t length) {
         auto result = parse_headers();
         maybe_send_error(result);
     }
-    if (m_state == State::PARSE_BODY) {
-        auto result = parse_body();
+    if (m_state == State::PARSE_BODY_CHUNKED) {
+        auto result = parse_body_chunked();
+        maybe_send_error(result);
+    }
+    if (m_state == State::PARSE_BODY_CONTENT_LENGTH) {
+        auto result = parse_body_content_length();
         maybe_send_error(result);
     }
     if (m_state == State::PARSE_COMPLETE) {
         if (m_on_request_complete) {
             m_on_request_complete(m_req);
         }
-
         reset();
     }
 }
@@ -44,7 +52,7 @@ void RequestParser::set_on_error(error_fn callback) {
     m_on_error = callback;
 }
 
-std::expected<void, RequestParserError> RequestParser::parse_request_line() {
+RequestParser::ParseResult RequestParser::parse_request_line() {
     // https://www.rfc-editor.org/rfc/rfc9112.html#section-2.2-6
     // A server SHOULD ignore at least one empty line (CRLF)
     // received prior to the request-line
@@ -91,7 +99,7 @@ std::expected<void, RequestParserError> RequestParser::parse_request_line() {
     return {};
 }
 
-std::expected<void, RequestParserError> RequestParser::parse_headers() {
+RequestParser::ParseResult RequestParser::parse_headers() {
     auto end = m_buffer.find("\r\n\r\n");
     if (end == std::string::npos) {
         // Not enough data yet
@@ -113,12 +121,10 @@ std::expected<void, RequestParserError> RequestParser::parse_headers() {
         }
     }
 
-    prepare_parse_body();
-    return {};
+    return prepare_parse_body();
 }
 
-std::expected<void, RequestParserError>
-    RequestParser::parse_header(const std::string& header_line) {
+RequestParser::ParseResult RequestParser::parse_header(const std::string& header_line) {
     auto colon_pos = header_line.find(':');
     if (colon_pos == std::string::npos) {
         return std::unexpected(RequestParserError::INVALID_HEADER);
@@ -149,13 +155,61 @@ std::expected<void, RequestParserError>
     return {};
 }
 
-std::expected<void, RequestParserError> RequestParser::parse_body() {
+RequestParser::ParseResult RequestParser::prepare_parse_body() {
+    auto encoding_opt = m_req.header("Transfer-Encoding");
+    auto content_length_opt = m_req.header("Content-Length");
+
+    // Both Content-Length and Transfer-Encoding present
+    if (content_length_opt.has_value() && encoding_opt.has_value()) {
+        return std::unexpected(RequestParserError::INVALID_HEADER);
+    }
+
+    if (encoding_opt.has_value()) {
+        // Only chunked encoding is supported
+        if (*encoding_opt != "chunked") {
+            return std::unexpected(RequestParserError::UNSUPPORTED_TRANSFER_ENCODING);
+        }
+
+        m_state = State::PARSE_BODY_CHUNKED;
+    } else if (content_length_opt.has_value()) {
+        m_state = State::PARSE_BODY_CONTENT_LENGTH;
+    } else {
+        // No body
+        m_state = State::PARSE_COMPLETE;
+    }
+
     return {};
 }
 
-void RequestParser::prepare_parse_body() {
-    // TODO: Check for Content-Length or Transfer-Encoding headers
+RequestParser::ParseResult RequestParser::parse_body_chunked() {
+    return {};
+}
+
+RequestParser::ParseResult RequestParser::parse_body_content_length() {
+    // We know Content-Length is present because of the state machine
+    auto content_length_sv = *m_req.header("Content-Length");
+    std::size_t content_length = 0;
+
+    auto res = std::from_chars(
+        content_length_sv.data(), content_length_sv.data() + content_length_sv.size(),
+        content_length
+    );
+    if (res.ec != std::errc()) {
+        return std::unexpected(RequestParserError::INVALID_HEADER);
+    }
+    if (content_length > MAX_BODY_SIZE) {
+        return std::unexpected(RequestParserError::CONTENT_TOO_LARGE);
+    }
+
+    if (m_buffer.size() < content_length) {
+        // Not enough data yet
+        return {};
+    }
+
+    m_req.m_body = m_buffer.substr(0, content_length);
+    m_buffer.erase(0, content_length);
     m_state = State::PARSE_COMPLETE;
+    return {};
 }
 
 void RequestParser::reset() {
@@ -186,6 +240,17 @@ bool RequestParser::valid_header_value(const std::string& str) {
         return false;
     }
     return true;
+}
+
+StatusCode parse_error_to_status_code(RequestParserError error) {
+    if (error == RequestParserError::UNSUPPORTED_TRANSFER_ENCODING) {
+        return StatusCode::NOT_IMPLEMENTED;
+    }
+    if (error == RequestParserError::CONTENT_TOO_LARGE) {
+        return StatusCode::PAYLOAD_TOO_LARGE;
+    }
+
+    return StatusCode::BAD_REQUEST;
 }
 
 }

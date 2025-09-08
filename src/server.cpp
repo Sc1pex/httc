@@ -1,7 +1,6 @@
 #include "httc/server.h"
 #include "httc/request_parser.h"
 #include "httc/response.h"
-#include "httc/status.h"
 
 namespace httc {
 
@@ -31,7 +30,7 @@ void Server::handle_conn(uvw::tcp_handle& tcp) {
         resp.write(client);
     });
     req_parser->set_on_error([client](RequestParserError err) {
-        auto resp = Response::from_status(StatusCode::BAD_REQUEST);
+        auto resp = Response::from_status(parse_error_to_status_code(err));
         client->close();
     });
 
