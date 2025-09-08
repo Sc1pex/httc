@@ -355,6 +355,60 @@ TEST_CASE("Parse Content-length bodies") {
     }
 }
 
+TEST_CASE("Parse chunked bodies") {
+    httc::RequestParser parser;
+
+    SECTION("Valid chunked body") {
+        bool callback_called = false;
+        parser.set_on_request_complete([&callback_called](const httc::Request& req) {
+            callback_called = true;
+            REQUIRE(req.method() == "POST");
+            REQUIRE(req.uri() == "/submit");
+            auto transfer_encoding = req.header("Transfer-Encoding");
+            REQUIRE(transfer_encoding.has_value());
+            REQUIRE(transfer_encoding.value() == "chunked");
+            REQUIRE(req.body() == "Hello, World");
+        });
+        parser.set_on_error([](httc::RequestParserError err) {
+            FAIL("Error callback should not be called");
+        });
+
+        std::string_view message = "POST /submit HTTP/1.1\r\n"
+                                   "Host: example.com\r\n"
+                                   "Transfer-Encoding: chunked\r\n"
+                                   "\r\n"
+                                   "5\r\n"
+                                   "Hello\r\n"
+                                   "7\r\n"
+                                   ", World\r\n"
+                                   "0\r\n"
+                                   "\r\n";
+        parser.feed_data(message.data(), message.size());
+        REQUIRE(callback_called);
+    }
+
+    SECTION("Invalid chunk size") {
+        bool error_called = false;
+        parser.set_on_request_complete([](const httc::Request& req) {
+            FAIL("Request complete callback should not be called");
+        });
+        parser.set_on_error([&error_called](httc::RequestParserError err) {
+            error_called = true;
+        });
+
+        std::string_view message = "POST /submit HTTP/1.1\r\n"
+                                   "Host: example.com\r\n"
+                                   "Transfer-Encoding: chunked\r\n"
+                                   "\r\n"
+                                   "invalid\r\n"
+                                   "Hello\r\n"
+                                   "0\r\n"
+                                   "\r\n";
+        parser.feed_data(message.data(), message.size());
+        REQUIRE(error_called);
+    }
+}
+
 TEST_CASE("Parse in multiple chunks") {
     httc::RequestParser parser;
 
@@ -407,6 +461,43 @@ TEST_CASE("Parse in multiple chunks") {
                                    "Content-Length: 13\r\n"
                                    "\r\n"
                                    "Hello, World!";
+        for (int i = 0; i < message.size(); i++) {
+            INFO("Feeding byte " << i);
+            parser.feed_data(&message[i], 1);
+
+            if (i < message.size() - 1) {
+                REQUIRE(!callback_called);
+            } else {
+                REQUIRE(callback_called);
+            }
+        }
+    }
+
+    SECTION("With chunked body") {
+        bool callback_called = false;
+        parser.set_on_request_complete([&callback_called](const httc::Request& req) {
+            callback_called = true;
+            CHECK(req.method() == "POST");
+            CHECK(req.uri() == "/submit");
+            auto transfer_encoding = req.header("Transfer-Encoding");
+            CHECK(transfer_encoding.has_value());
+            CHECK(transfer_encoding.value() == "chunked");
+            CHECK(req.body() == "Hello, World");
+        });
+        parser.set_on_error([](httc::RequestParserError err) {
+            FAIL("Error callback should not be called");
+        });
+
+        std::string_view message = "POST /submit HTTP/1.1\r\n"
+                                   "Host: example.com\r\n"
+                                   "Transfer-Encoding: chunked\r\n"
+                                   "\r\n"
+                                   "5\r\n"
+                                   "Hello\r\n"
+                                   "7\r\n"
+                                   ", World\r\n"
+                                   "0\r\n"
+                                   "\r\n";
         for (int i = 0; i < message.size(); i++) {
             INFO("Feeding byte " << i);
             parser.feed_data(&message[i], 1);

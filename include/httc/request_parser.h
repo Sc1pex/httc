@@ -12,6 +12,7 @@ enum class RequestParserError {
     INVALID_HEADER,
     UNSUPPORTED_TRANSFER_ENCODING,
     CONTENT_TOO_LARGE,
+    INVALID_CHUNK_ENCODING,
 };
 
 StatusCode parse_error_to_status_code(RequestParserError error);
@@ -31,7 +32,8 @@ private:
     enum class State {
         PARSE_REQUEST_LINE,
         PARSE_HEADERS,
-        PARSE_BODY_CHUNKED,
+        PARSE_BODY_CHUNKED_SIZE,
+        PARSE_BODY_CHUNKED_DATA,
         PARSE_BODY_CONTENT_LENGTH,
         PARSE_COMPLETE,
     };
@@ -41,8 +43,9 @@ private:
     ParseResult parse_request_line();
     ParseResult parse_headers();
     ParseResult prepare_parse_body();
-    ParseResult parse_body_chunked();
     ParseResult parse_body_content_length();
+    ParseResult parse_body_chunked_size();
+    ParseResult parse_body_chunked_data();
 
     void reset();
 
@@ -58,6 +61,8 @@ private:
     Request m_req;
     std::string m_buffer;
     State m_state;
+
+    std::size_t m_chunk_bytes_remaining;
 };
 
 }
