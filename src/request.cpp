@@ -18,4 +18,8 @@ std::string_view Request::uri() const {
     return m_uri;
 }
 
+std::string_view Request::body() const {
+    return m_body;
+}
+
 }

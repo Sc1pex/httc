@@ -111,3 +111,131 @@ TEST_CASE("Parse request line") {
         REQUIRE(error_called);
     }
 }
+
+TEST_CASE("Parse headers") {
+    httc::RequestParser parser;
+
+    SECTION("Valid headers") {
+        bool callback_called = false;
+        parser.set_on_request_complete([&callback_called](const httc::Request& req) {
+            callback_called = true;
+            REQUIRE(req.method() == "GET");
+            REQUIRE(req.uri() == "/index.html");
+            auto host = req.header("Host");
+            REQUIRE(host.has_value());
+            REQUIRE(host.value() == "example.com");
+            auto user_agent = req.header("User-Agent");
+            REQUIRE(user_agent.has_value());
+            REQUIRE(user_agent.value() == "TestAgent/1.0");
+        });
+        parser.set_on_error([](httc::RequestParserError err) {
+            FAIL("Error callback should not be called");
+        });
+
+        std::string_view message = "GET /index.html HTTP/1.1\r\n"
+                                   "Host: example.com\r\n"
+                                   "User-Agent: TestAgent/1.0\r\n"
+                                   "\r\n";
+        parser.feed_data(message.data(), message.size());
+        REQUIRE(callback_called);
+    }
+
+    SECTION("Invalid header name") {
+        bool error_called = false;
+        parser.set_on_request_complete([](const httc::Request& req) {
+            FAIL("Request complete callback should not be called");
+        });
+        parser.set_on_error([&error_called](httc::RequestParserError err) {
+            error_called = true;
+            REQUIRE(err == httc::RequestParserError::INVALID_HEADER);
+        });
+
+        std::string_view message = "GET /index.html HTTP/1.1\r\n"
+                                   "Inva lid-Header: value\r\n"
+                                   "\r\n";
+        parser.feed_data(message.data(), message.size());
+        REQUIRE(error_called);
+    }
+
+    SECTION("Invalid header value") {
+        bool error_called = false;
+        parser.set_on_request_complete([](const httc::Request& req) {
+            FAIL("Request complete callback should not be called");
+        });
+        parser.set_on_error([&error_called](httc::RequestParserError err) {
+            error_called = true;
+            REQUIRE(err == httc::RequestParserError::INVALID_HEADER);
+        });
+
+        std::string_view message = "GET /index.html HTTP/1.1\r\n"
+                                   "Valid-Header: value\x01\x02\x03\r\n"
+                                   "\r\n";
+        parser.feed_data(message.data(), message.size());
+        REQUIRE(error_called);
+    }
+}
+
+TEST_CASE("Parse Content-length bodies") {
+    httc::RequestParser parser;
+
+    SECTION("Valid Content-Length body") {
+        bool callback_called = false;
+        parser.set_on_request_complete([&callback_called](const httc::Request& req) {
+            callback_called = true;
+            REQUIRE(req.method() == "POST");
+            REQUIRE(req.uri() == "/submit");
+            auto content_length = req.header("Content-Length");
+            REQUIRE(content_length.has_value());
+            REQUIRE(content_length.value() == "13");
+            REQUIRE(req.body() == "Hello, World!");
+        });
+        parser.set_on_error([](httc::RequestParserError err) {
+            FAIL("Error callback should not be called");
+        });
+
+        std::string_view message = "POST /submit HTTP/1.1\r\n"
+                                   "Host: example.com\r\n"
+                                   "Content-Length: 13\r\n"
+                                   "\r\n"
+                                   "Hello, World!";
+        parser.feed_data(message.data(), message.size());
+        REQUIRE(callback_called);
+    }
+
+    SECTION("Invalid Content-Length value") {
+        bool error_called = false;
+        parser.set_on_request_complete([](const httc::Request& req) {
+            FAIL("Request complete callback should not be called");
+        });
+        parser.set_on_error([&error_called](httc::RequestParserError err) {
+            error_called = true;
+            REQUIRE(err == httc::RequestParserError::INVALID_HEADER);
+        });
+
+        std::string_view message = "POST /submit HTTP/1.1\r\n"
+                                   "Host: example.com\r\n"
+                                   "Content-Length: invalid\r\n"
+                                   "\r\n"
+                                   "Hello, World!";
+        parser.feed_data(message.data(), message.size());
+        REQUIRE(error_called);
+    }
+
+    SECTION("Content-Length exceeds maximum size") {
+        bool error_called = false;
+        parser.set_on_request_complete([](const httc::Request& req) {
+            FAIL("Request complete callback should not be called");
+        });
+        parser.set_on_error([&error_called](httc::RequestParserError err) {
+            error_called = true;
+            REQUIRE(err == httc::RequestParserError::CONTENT_TOO_LARGE);
+        });
+
+        std::string_view message = "POST /submit HTTP/1.1\r\n"
+                                   "Host: example.com\r\n"
+                                   "Content-Length: 10485771\r\n" // 10 MB + 1 byte
+                                   "\r\n";
+        parser.feed_data(message.data(), message.size());
+        REQUIRE(error_called);
+    }
+}

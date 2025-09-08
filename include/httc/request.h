@@ -12,6 +12,7 @@ public:
     std::optional<std::string_view> header(const std::string& header) const;
     std::string_view method() const;
     std::string_view uri() const;
+    std::string_view body() const;
 
 private:
     std::string m_method;
