@@ -69,8 +69,38 @@ private:
         }
     };
 
-    std::unordered_map<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveSearch> m_map;
+public:
+    // Types for STL container compatibility
+    using value_type = std::pair<const std::string, std::string>;
+    using reference = value_type&;
+    using const_reference = const value_type&;
+    using iterator = std::unordered_map<
+        std::string, std::string, CaseInsensitiveHash, CaseInsensitiveSearch>::iterator;
+    using const_iterator = std::unordered_map<
+        std::string, std::string, CaseInsensitiveHash, CaseInsensitiveSearch>::const_iterator;
 
+    // Iterator interface
+    iterator begin() {
+        return m_map.begin();
+    }
+    iterator end() {
+        return m_map.end();
+    }
+    const_iterator begin() const {
+        return m_map.begin();
+    }
+    const_iterator end() const {
+        return m_map.end();
+    }
+    const_iterator cbegin() const {
+        return m_map.cbegin();
+    }
+    const_iterator cend() const {
+        return m_map.cend();
+    }
+
+private:
+    std::unordered_map<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveSearch> m_map;
     friend struct std::formatter<Headers>;
 };
 
