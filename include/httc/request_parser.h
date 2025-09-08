@@ -18,6 +18,8 @@ StatusCode parse_error_to_status_code(RequestParserError error);
 
 class RequestParser {
 public:
+    RequestParser();
+
     using request_complete_fn = std::function<void(const Request&)>;
     using error_fn = std::function<void(RequestParserError)>;
 

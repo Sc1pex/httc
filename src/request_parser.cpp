@@ -8,6 +8,10 @@ namespace httc {
 
 const std::size_t MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
 
+RequestParser::RequestParser() {
+    m_state = State::PARSE_REQUEST_LINE;
+}
+
 void RequestParser::feed_data(const char* data, std::size_t length) {
     m_buffer.append(data, length);
 

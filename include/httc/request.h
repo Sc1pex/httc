@@ -9,7 +9,9 @@ namespace httc {
 
 class Request {
 public:
-    std::optional<std::string_view> header(const std::string& header);
+    std::optional<std::string_view> header(const std::string& header) const;
+    std::string_view method() const;
+    std::string_view uri() const;
 
 private:
     std::string m_method;
