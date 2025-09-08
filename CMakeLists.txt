@@ -8,6 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(uvw CONFIG REQUIRED)
+find_package(Catch2 CONFIG REQUIRED)
 
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
 

@@ -1,6 +1,7 @@
-add_executable(helloworld)
-target_sources(helloworld 
+add_executable(tests)
+target_sources(tests
     PUBLIC
-        hello-world.cpp
+        request_parser.cpp
 )
-target_link_libraries(helloworld PUBLIC httc)
+target_link_libraries(tests PUBLIC httc)
+target_link_libraries(tests PUBLIC Catch2::Catch2WithMain)

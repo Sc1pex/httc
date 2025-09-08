@@ -104,20 +104,20 @@ RequestParser::ParseResult RequestParser::parse_request_line() {
 }
 
 RequestParser::ParseResult RequestParser::parse_headers() {
-    auto end = m_buffer.find("\r\n\r\n");
-    if (end == std::string::npos) {
-        // Not enough data yet
-        return {};
-    }
+    while (!m_buffer.empty()) {
+        auto crlf = m_buffer.find("\r\n");
+        if (crlf == std::string::npos) {
+            // Not enough data yet
+            return {};
+        }
 
-    // Extract the headers block (up to the last CRLF before the CRLFCRLF)
-    std::string headers_block = m_buffer.substr(0, end + 2);
-    m_buffer.erase(0, end + 4);
+        std::string header_line = m_buffer.substr(0, crlf);
+        m_buffer.erase(0, crlf + 2);
 
-    while (!headers_block.empty()) {
-        auto crlf = headers_block.find("\r\n");
-        std::string header_line = headers_block.substr(0, crlf);
-        headers_block.erase(0, crlf + 2);
+        // End of headers
+        if (header_line.empty()) {
+            break;
+        }
 
         auto result = parse_header(header_line);
         if (!result.has_value()) {
