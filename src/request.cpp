@@ -1,13 +1,10 @@
 #include "httc/request.h"
+#include <string_view>
 
 namespace httc {
 
-std::optional<std::string_view> Request::header(const std::string& header) const {
-    if (m_headers.find(header) != m_headers.end()) {
-        return m_headers.at(header);
-    } else {
-        return std::nullopt;
-    }
+std::optional<std::string_view> Request::header(std::string_view header) const {
+    return m_headers.get(header);
 }
 
 std::string_view Request::method() const {

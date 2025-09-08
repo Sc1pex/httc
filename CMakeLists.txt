@@ -16,6 +16,7 @@ add_library(httc STATIC)
 target_include_directories(httc PUBLIC include)
 target_sources(httc 
     PUBLIC
+        src/headers.cpp
         src/response.cpp
         src/request.cpp
         src/request_parser.cpp

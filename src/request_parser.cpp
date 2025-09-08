@@ -2,7 +2,6 @@
 #include <charconv>
 #include <expected>
 #include <functional>
-#include <print>
 #include "httc/status.h"
 
 namespace httc {
@@ -156,7 +155,7 @@ RequestParser::ParseResult RequestParser::parse_header(const std::string& header
         return std::unexpected(RequestParserError::INVALID_HEADER);
     }
 
-    m_req.m_headers[name] = value;
+    m_req.m_headers.set(std::move(name), std::move(value));
     return {};
 }
 

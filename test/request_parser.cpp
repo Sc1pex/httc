@@ -288,6 +288,31 @@ TEST_CASE("Parse headers") {
         parser.feed_data(message.data(), message.size());
         REQUIRE(callback_called);
     }
+
+    SECTION("Case insensitive header names") {
+        bool callback_called = false;
+        parser.set_on_request_complete([&callback_called](const httc::Request& req) {
+            callback_called = true;
+            REQUIRE(req.method() == "GET");
+            REQUIRE(req.uri() == "/index.html");
+            auto host = req.header("host");
+            REQUIRE(host.has_value());
+            REQUIRE(host.value() == "example.com");
+            auto user_agent = req.header("USER-AGENT");
+            REQUIRE(user_agent.has_value());
+            REQUIRE(user_agent.value() == "TestAgent/1.0");
+        });
+        parser.set_on_error([](httc::RequestParserError err) {
+            FAIL("Error callback should not be called");
+        });
+
+        std::string_view message = "GET /index.html HTTP/1.1\r\n"
+                                   "hOsT: example.com\r\n"
+                                   "UsEr-AgEnT: TestAgent/1.0\r\n"
+                                   "\r\n";
+        parser.feed_data(message.data(), message.size());
+        REQUIRE(callback_called);
+    }
 }
 
 TEST_CASE("Parse Content-length bodies") {
