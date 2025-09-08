@@ -419,3 +419,47 @@ TEST_CASE("Parse in multiple chunks") {
         }
     }
 }
+
+TEST_CASE("Multiple requests") {
+    httc::RequestParser parser;
+
+    int req_count = 0;
+    parser.set_on_request_complete([&req_count](const httc::Request& req) {
+        req_count++;
+        if (req_count == 1) {
+            REQUIRE(req.method() == "POST");
+            REQUIRE(req.uri() == "/abc");
+            auto content_length = req.header("Content-Length");
+            REQUIRE(content_length.has_value());
+            REQUIRE(content_length.value() == "5");
+            REQUIRE(req.body() == "Hello");
+        } else if (req_count == 2) {
+            REQUIRE(req.method() == "POST");
+            REQUIRE(req.uri() == "/submit");
+            auto content_length = req.header("Content-Length");
+            REQUIRE(content_length.has_value());
+            REQUIRE(content_length.value() == "13");
+            REQUIRE(req.body() == "Hello, World!");
+        } else {
+            FAIL("Unexpected request count");
+        }
+    });
+    parser.set_on_error([](httc::RequestParserError err) {
+        INFO("Error callback called with error: " << static_cast<int>(err));
+        FAIL("Error callback should not be called");
+    });
+
+    std::string_view message1 = "POST /abc HTTP/1.1\r\n"
+                                "Host: example.com\r\n"
+                                "Content-Length: 5\r\n"
+                                "\r\n"
+                                "HelloPOST";
+    std::string_view message2 = " /submit HTTP/1.1\r\n"
+                                "Host: example.com\r\n"
+                                "Content-Length: 13\r\n"
+                                "\r\n"
+                                "Hello, World!";
+    parser.feed_data(message1.data(), message1.size());
+    parser.feed_data(message2.data(), message2.size());
+    REQUIRE(req_count == 2);
+}

@@ -218,7 +218,6 @@ RequestParser::ParseResult RequestParser::parse_body_content_length() {
 
 void RequestParser::reset() {
     m_req = Request();
-    m_buffer.clear();
     m_state = State::PARSE_REQUEST_LINE;
 }
 
