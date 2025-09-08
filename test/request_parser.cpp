@@ -1,4 +1,5 @@
 #include "httc/request_parser.h"
+#include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("Parse request line") {
@@ -237,5 +238,70 @@ TEST_CASE("Parse Content-length bodies") {
                                    "\r\n";
         parser.feed_data(message.data(), message.size());
         REQUIRE(error_called);
+    }
+}
+
+TEST_CASE("Parse in multiple chunks") {
+    httc::RequestParser parser;
+
+    SECTION("Withoud body") {
+        bool callback_called = false;
+        parser.set_on_request_complete([&callback_called](const httc::Request& req) {
+            callback_called = true;
+            CHECK(req.method() == "GET");
+            CHECK(req.uri() == "/index.html");
+            auto host = req.header("Host");
+            CHECK(host.has_value());
+            CHECK(host.value() == "example.com");
+        });
+        parser.set_on_error([](httc::RequestParserError err) {
+            FAIL("Error callback should not be called");
+        });
+
+        std::string_view message = "GET /index.html HTTP/1.1\r\n"
+                                   "Host: example.com\r\n"
+                                   "\r\n";
+        for (int i = 0; i < message.size(); i++) {
+            INFO("Feeding byte " << i);
+            parser.feed_data(&message[i], 1);
+
+            if (i < message.size() - 1) {
+                REQUIRE(!callback_called);
+            } else {
+                REQUIRE(callback_called);
+            }
+        }
+    }
+
+    SECTION("With Content-Length body") {
+        bool callback_called = false;
+        parser.set_on_request_complete([&callback_called](const httc::Request& req) {
+            callback_called = true;
+            CHECK(req.method() == "POST");
+            CHECK(req.uri() == "/submit");
+            auto content_length = req.header("Content-Length");
+            CHECK(content_length.has_value());
+            CHECK(content_length.value() == "13");
+            CHECK(req.body() == "Hello, World!");
+        });
+        parser.set_on_error([](httc::RequestParserError err) {
+            FAIL("Error callback should not be called");
+        });
+
+        std::string_view message = "POST /submit HTTP/1.1\r\n"
+                                   "Host: example.com\r\n"
+                                   "Content-Length: 13\r\n"
+                                   "\r\n"
+                                   "Hello, World!";
+        for (int i = 0; i < message.size(); i++) {
+            INFO("Feeding byte " << i);
+            parser.feed_data(&message[i], 1);
+
+            if (i < message.size() - 1) {
+                REQUIRE(!callback_called);
+            } else {
+                REQUIRE(callback_called);
+            }
+        }
     }
 }

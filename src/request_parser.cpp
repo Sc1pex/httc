@@ -2,6 +2,7 @@
 #include <charconv>
 #include <expected>
 #include <functional>
+#include <print>
 #include "httc/status.h"
 
 namespace httc {
@@ -116,7 +117,7 @@ RequestParser::ParseResult RequestParser::parse_headers() {
 
         // End of headers
         if (header_line.empty()) {
-            break;
+            return prepare_parse_body();
         }
 
         auto result = parse_header(header_line);
@@ -125,7 +126,7 @@ RequestParser::ParseResult RequestParser::parse_headers() {
         }
     }
 
-    return prepare_parse_body();
+    return {};
 }
 
 RequestParser::ParseResult RequestParser::parse_header(const std::string& header_line) {
