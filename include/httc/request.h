@@ -1,6 +1,7 @@
 #pragma once
 
 #include <format>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -8,6 +9,8 @@ namespace httc {
 
 class Request {
 public:
+    std::optional<std::string_view> header(const std::string& header);
+
 private:
     std::string m_method;
     std::string m_uri;
