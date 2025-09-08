@@ -174,6 +174,120 @@ TEST_CASE("Parse headers") {
         parser.feed_data(message.data(), message.size());
         REQUIRE(error_called);
     }
+
+    SECTION("Header whitespace handling 1") {
+        bool callback_called = false;
+        parser.set_on_request_complete([&callback_called](const httc::Request& req) {
+            callback_called = true;
+            REQUIRE(req.method() == "GET");
+            REQUIRE(req.uri() == "/index.html");
+            auto header = req.header("X-Custom-Header");
+            REQUIRE(header.has_value());
+            REQUIRE(header.value() == "value with spaces");
+        });
+        parser.set_on_error([](httc::RequestParserError err) {
+            FAIL("Error callback should not be called");
+        });
+
+        std::string_view message = "GET /index.html HTTP/1.1\r\n"
+                                   "X-Custom-Header:    value with spaces   \r\n"
+                                   "\r\n";
+        parser.feed_data(message.data(), message.size());
+        REQUIRE(callback_called);
+    }
+
+    SECTION("Header whitespace handling 2") {
+        bool callback_called = false;
+        parser.set_on_request_complete([&callback_called](const httc::Request& req) {
+            callback_called = true;
+            REQUIRE(req.method() == "GET");
+            REQUIRE(req.uri() == "/index.html");
+            auto header = req.header("X-Custom-Header");
+            REQUIRE(header.has_value());
+            REQUIRE(header.value() == "value with spaces");
+        });
+        parser.set_on_error([](httc::RequestParserError err) {
+            FAIL("Error callback should not be called");
+        });
+
+        std::string_view message = "GET /index.html HTTP/1.1\r\n"
+                                   "X-Custom-Header:value with spaces\r\n"
+                                   "\r\n";
+        parser.feed_data(message.data(), message.size());
+        REQUIRE(callback_called);
+    }
+
+    SECTION("Header with whitespace 3") {
+        bool error_called = false;
+        parser.set_on_request_complete([](const httc::Request& req) {
+            FAIL("Request complete callback should not be called");
+        });
+        parser.set_on_error([&error_called](httc::RequestParserError err) {
+            error_called = true;
+            REQUIRE(err == httc::RequestParserError::INVALID_HEADER);
+        });
+
+        std::string_view message = "GET /index.html HTTP/1.1\r\n"
+                                   "X-Custom-Header : value with spaces\r\n"
+                                   "\r\n";
+        parser.feed_data(message.data(), message.size());
+        REQUIRE(error_called);
+    }
+
+    SECTION("Missing colon in header") {
+        bool error_called = false;
+        parser.set_on_request_complete([](const httc::Request& req) {
+            FAIL("Request complete callback should not be called");
+        });
+        parser.set_on_error([&error_called](httc::RequestParserError err) {
+            error_called = true;
+            REQUIRE(err == httc::RequestParserError::INVALID_HEADER);
+        });
+
+        std::string_view message = "GET /index.html HTTP/1.1\r\n"
+                                   "Invalid-Header value\r\n"
+                                   "\r\n";
+        parser.feed_data(message.data(), message.size());
+        REQUIRE(error_called);
+    }
+
+    SECTION("Empty header name") {
+        bool error_called = false;
+        parser.set_on_request_complete([](const httc::Request& req) {
+            FAIL("Request complete callback should not be called");
+        });
+        parser.set_on_error([&error_called](httc::RequestParserError err) {
+            error_called = true;
+            REQUIRE(err == httc::RequestParserError::INVALID_HEADER);
+        });
+
+        std::string_view message = "GET /index.html HTTP/1.1\r\n"
+                                   ": value\r\n"
+                                   "\r\n";
+        parser.feed_data(message.data(), message.size());
+        REQUIRE(error_called);
+    }
+
+    SECTION("Empty header value") {
+        bool callback_called = false;
+        parser.set_on_request_complete([&callback_called](const httc::Request& req) {
+            callback_called = true;
+            REQUIRE(req.method() == "GET");
+            REQUIRE(req.uri() == "/index.html");
+            auto header = req.header("X-Empty-Header");
+            REQUIRE(header.has_value());
+            REQUIRE(header.value() == "");
+        });
+        parser.set_on_error([](httc::RequestParserError err) {
+            FAIL("Error callback should not be called");
+        });
+
+        std::string_view message = "GET /index.html HTTP/1.1\r\n"
+                                   "X-Empty-Header: \r\n"
+                                   "\r\n";
+        parser.feed_data(message.data(), message.size());
+        REQUIRE(callback_called);
+    }
 }
 
 TEST_CASE("Parse Content-length bodies") {

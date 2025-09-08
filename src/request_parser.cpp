@@ -225,6 +225,9 @@ void RequestParser::reset() {
 
 // https://www.rfc-editor.org/rfc/rfc9110#name-tokens
 bool RequestParser::valid_token(const std::string& str) {
+    if (str.empty()) {
+        return false;
+    }
     for (char c : str) {
         if (c == '!' || c == '#' || c == '$' || c == '%' || c == '&' || c == '\'' || c == '*'
             || c == '+' || c == '-' || c == '.' || (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z')
