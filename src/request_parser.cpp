@@ -1,7 +1,6 @@
 #include "httc/request_parser.h"
 #include <expected>
 #include <functional>
-#include <print>
 
 namespace httc {
 
@@ -20,6 +19,9 @@ void RequestParser::feed_data(const char* data, std::size_t length) {
                 m_on_error(res.error());
             }
             reset();
+            // Since the request could not be parsed, any data left in the buffer
+            // cannot be trusted to be valid
+            m_buffer = {};
         }
     };
 

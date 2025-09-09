@@ -394,6 +394,7 @@ TEST_CASE("Parse chunked bodies") {
         });
         parser.set_on_error([&error_called](httc::RequestParserError err) {
             error_called = true;
+            REQUIRE(err == httc::RequestParserError::INVALID_CHUNK_ENCODING);
         });
 
         std::string_view message = "POST /submit HTTP/1.1\r\n"
