@@ -1,9 +1,64 @@
 #include "httc/uri.h"
+#include <optional>
 
 namespace httc {
 
 std::optional<URI> URI::parse(const std::string& uri) {
-    return std::nullopt;
+    auto query_start = uri.find("?");
+    auto path = uri.substr(0, query_start);
+
+    std::vector<std::string> paths;
+    std::vector<std::pair<std::string, std::string>> query;
+
+    if (path.empty() || path[0] != '/') {
+        return std::nullopt;
+    }
+
+    size_t start = 1;
+    size_t end = path.find("/", start);
+    while (end != std::string::npos) {
+        if (end > start) {
+            paths.push_back(path.substr(start, end - start));
+        }
+        start = end + 1;
+        end = path.find("/", start);
+    }
+    if (start < path.size()) {
+        paths.push_back(path.substr(start));
+    }
+
+    if (query_start == std::string::npos) {
+        return URI{ std::move(paths), std::move(query) };
+    }
+
+    std::string query_str = uri.substr(query_start + 1);
+    start = 0;
+    end = query_str.find("&", start);
+    while (end != std::string::npos) {
+        auto eq_pos = query_str.find("=", start);
+        if (eq_pos != std::string::npos && eq_pos < end) {
+            query.emplace_back(
+                query_str.substr(start, eq_pos - start),
+                query_str.substr(eq_pos + 1, end - eq_pos - 1)
+            );
+        } else {
+            query.emplace_back(query_str.substr(start, end - start), "");
+        }
+        start = end + 1;
+        end = query_str.find("&", start);
+    }
+    if (start < query_str.size()) {
+        auto eq_pos = query_str.find("=", start);
+        if (eq_pos != std::string::npos) {
+            query.emplace_back(
+                query_str.substr(start, eq_pos - start), query_str.substr(eq_pos + 1)
+            );
+        } else {
+            query.emplace_back(query_str.substr(start), "");
+        }
+    }
+
+    return URI{ std::move(paths), std::move(query) };
 }
 
 const std::vector<std::string>& URI::paths() const {
