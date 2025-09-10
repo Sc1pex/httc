@@ -22,6 +22,7 @@ target_sources(httc
         src/request_parser.cpp
         src/server.cpp
         src/status.cpp
+        src/uri.cpp
 )
 target_link_libraries(httc PUBLIC uvw::uvw)
 
