@@ -17,6 +17,7 @@ target_include_directories(httc PUBLIC include)
 target_sources(httc 
     PUBLIC
         src/headers.cpp
+        src/percent_encoding.cpp
         src/response.cpp
         src/request.cpp
         src/request_parser.cpp

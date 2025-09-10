@@ -1,8 +1,9 @@
 add_executable(tests)
 target_sources(tests
     PUBLIC
-        request_parser.cpp
         headers.cpp
+        percent_encoding.cpp
+        request_parser.cpp
         uri.cpp
 )
 target_link_libraries(tests PUBLIC httc)
