@@ -6,8 +6,6 @@
 
 namespace httc {
 
-enum class URIParseError {};
-
 class URI {
 public:
     URI() = delete;
