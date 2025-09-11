@@ -6,11 +6,21 @@
 
 namespace httc {
 
+// Represents how well a URI pattern matches a given URI.
+enum class URIMatch {
+    NO_MATCH,
+    WILD_MATCH, // e.g., /path/* matches /path/anything/here
+    PARAM_MATCH, // e.g., /path/:param matches /path/value, but better than /path/*
+    FULL_MATCH, // e.g., /path/exact matches /path/exact, better than anything else
+};
+
 class URI {
 public:
     URI() = delete;
 
     static std::optional<URI> parse(const std::string& url_decoded);
+
+    URIMatch match(const URI& other) const;
 
     const std::vector<std::string>& paths() const;
     const std::vector<std::pair<std::string, std::string>>& query() const;

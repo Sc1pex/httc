@@ -36,6 +36,26 @@ TEST_CASE("Parse valid URIs") {
         REQUIRE(uri->paths()[2] == "users");
         REQUIRE(uri->query().empty());
     }
+
+    SECTION("Path with parameters") {
+        auto uri = httc::URI::parse("/api/v1/users/:userId");
+        REQUIRE(uri.has_value());
+        REQUIRE(uri->paths().size() == 4);
+        REQUIRE(uri->paths()[0] == "api");
+        REQUIRE(uri->paths()[1] == "v1");
+        REQUIRE(uri->paths()[2] == "users");
+        REQUIRE(uri->paths()[3] == ":userId");
+        REQUIRE(uri->query().empty());
+    }
+
+    SECTION("Path with wildcard") {
+        auto uri = httc::URI::parse("/files/*");
+        REQUIRE(uri.has_value());
+        REQUIRE(uri->paths().size() == 2);
+        REQUIRE(uri->paths()[0] == "files");
+        REQUIRE(uri->paths()[1] == "*");
+        REQUIRE(uri->query().empty());
+    }
 }
 
 TEST_CASE("Parse URIs with query parameters") {
@@ -105,5 +125,58 @@ TEST_CASE("Parse invalid URIs") {
     SECTION("Only query string") {
         auto uri = httc::URI::parse("?q=test");
         REQUIRE(!uri.has_value());
+    }
+}
+
+TEST_CASE("URI matching") {
+    auto uri1 = httc::URI::parse("/api/v1/users");
+    auto uri2 = httc::URI::parse("/api/v1/users/123");
+    auto uri3 = httc::URI::parse("/api/v1/users/:userId");
+    auto uri4 = httc::URI::parse("/api/v1/*");
+    auto uri5 = httc::URI::parse("/api/v1/users");
+
+    REQUIRE(uri1.has_value());
+    REQUIRE(uri2.has_value());
+    REQUIRE(uri3.has_value());
+    REQUIRE(uri4.has_value());
+    REQUIRE(uri5.has_value());
+
+    SECTION("Full match") {
+        REQUIRE(uri1->match(*uri5) == httc::URIMatch::FULL_MATCH);
+    }
+
+    SECTION("Parameter match") {
+        REQUIRE(uri3->match(*uri2) == httc::URIMatch::PARAM_MATCH);
+    }
+
+    SECTION("Wildcard match") {
+        REQUIRE(uri4->match(*uri2) == httc::URIMatch::WILD_MATCH);
+        REQUIRE(uri4->match(*uri1) == httc::URIMatch::WILD_MATCH);
+    }
+
+    SECTION("No match") {
+        REQUIRE(uri1->match(*uri2) == httc::URIMatch::NO_MATCH);
+        REQUIRE(uri2->match(*uri1) == httc::URIMatch::NO_MATCH);
+        REQUIRE(uri3->match(*uri1) == httc::URIMatch::NO_MATCH);
+    }
+
+    SECTION("Match both ways") {
+        auto uris = { uri1, uri2, uri3, uri4, uri5 };
+        for (const auto& u1 : uris) {
+            for (const auto& u2 : uris) {
+                REQUIRE(u1->match(*u2) == u2->match(*u1));
+            }
+        }
+    }
+
+    SECTION("Different path lengths") {
+        auto short_uri = httc::URI::parse("/api/v1");
+        auto long_uri = httc::URI::parse("/api/v1/users/123/details");
+
+        REQUIRE(short_uri.has_value());
+        REQUIRE(long_uri.has_value());
+
+        REQUIRE(short_uri->match(*long_uri) == httc::URIMatch::NO_MATCH);
+        REQUIRE(long_uri->match(*short_uri) == httc::URIMatch::NO_MATCH);
     }
 }
