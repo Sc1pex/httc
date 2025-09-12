@@ -11,6 +11,9 @@ namespace httc {
 class Headers {
 public:
     void set(std::string_view header, std::string_view value);
+    bool unset(std::string_view header);
+    void override(std::string_view header, std::string_view value);
+
     std::optional<std::string_view> get(std::string_view header) const;
 
 private:

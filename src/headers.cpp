@@ -20,4 +20,18 @@ std::optional<std::string_view> Headers::get(std::string_view header) const {
     }
 }
 
+bool Headers::unset(std::string_view header) {
+    auto it = m_map.find(header);
+    if (it != m_map.end()) {
+        m_map.erase(it);
+        return true;
+    } else {
+        return false;
+    }
+}
+
+void Headers::override(std::string_view header, std::string_view value) {
+    m_map[std::string(header)] = std::string(value);
+}
+
 }
