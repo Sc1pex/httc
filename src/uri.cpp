@@ -106,4 +106,13 @@ URIMatch URI::match(const URI& other) const {
 std::string URI::to_string() const {
     return std::format("{}", *this);
 }
+
+std::string URI::path() const {
+    std::string result;
+    for (const auto& p : m_paths) {
+        result += "/" + p;
+    }
+    return result.empty() ? "/" : result;
+}
+
 }
