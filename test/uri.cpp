@@ -179,4 +179,14 @@ TEST_CASE("URI matching") {
         REQUIRE(short_uri->match(*long_uri) == httc::URIMatch::NO_MATCH);
         REQUIRE(long_uri->match(*short_uri) == httc::URIMatch::NO_MATCH);
     }
+
+    SECTION("Parameters full match") {
+        auto uri1 = httc::URI::parse("/api/:version/users");
+        auto uri2 = httc::URI::parse("/api/:ver/users");
+
+        REQUIRE(uri1.has_value());
+        REQUIRE(uri2.has_value());
+
+        REQUIRE(uri1->match(*uri2) == httc::URIMatch::FULL_MATCH);
+    }
 }

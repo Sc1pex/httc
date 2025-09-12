@@ -78,6 +78,10 @@ URIMatch URI::match(const URI& other) const {
             return URIMatch::WILD_MATCH;
         }
         if (path_a != path_b) {
+            if (path_a[0] == ':' && path_b[0] == ':') {
+                // Both are parameters - treat as full match
+                continue;
+            }
             if (path_a[0] == ':' || path_b[0] == ':') {
                 param_match = true;
             } else {
