@@ -14,18 +14,11 @@ public:
     Request();
 
     std::optional<std::string_view> header(std::string_view header) const;
-    std::string_view method() const;
-    const URI& uri() const;
-    std::string_view body() const;
 
-private:
-    std::string m_method;
-    URI m_uri;
-    std::string m_body;
-    Headers m_headers;
-
-    friend class RequestParser;
-    friend struct std::formatter<Request>;
+    std::string method;
+    URI uri;
+    std::string body;
+    Headers headers;
 };
 
 }
@@ -34,10 +27,10 @@ template<>
 struct std::formatter<httc::Request> : std::formatter<std::string> {
     auto format(const httc::Request& req, std::format_context& ctx) const {
         auto out = ctx.out();
-        out = std::format_to(out, "method: {}\n", req.m_method);
-        out = std::format_to(out, "path: {}\n", req.m_uri);
-        out = std::format_to(out, "Headers:\n{}", req.m_headers);
-        out = std::format_to(out, "Body: {}", req.m_body);
+        out = std::format_to(out, "method: {}\n", req.method);
+        out = std::format_to(out, "path: {}\n", req.uri);
+        out = std::format_to(out, "Headers:\n{}", req.headers);
+        out = std::format_to(out, "Body: {}", req.body);
         return out;
     }
 };

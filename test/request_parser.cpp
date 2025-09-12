@@ -9,8 +9,8 @@ TEST_CASE("Parse request line") {
         bool callback_called = false;
         parser.set_on_request_complete([&callback_called](const httc::Request& req) {
             callback_called = true;
-            REQUIRE(req.method() == "GET");
-            REQUIRE(req.uri().to_string() == "/index.html");
+            REQUIRE(req.method == "GET");
+            REQUIRE(req.uri.to_string() == "/index.html");
         });
         parser.set_on_error([](httc::RequestParserError err) {
             FAIL("Error callback should not be called");
@@ -40,8 +40,8 @@ TEST_CASE("Parse request line") {
         bool callback_called = false;
         parser.set_on_request_complete([&callback_called](const httc::Request& req) {
             callback_called = true;
-            REQUIRE(req.method() == "GET");
-            REQUIRE(req.uri().to_string() == "/index.html");
+            REQUIRE(req.method == "GET");
+            REQUIRE(req.uri.to_string() == "/index.html");
         });
         parser.set_on_error([](httc::RequestParserError err) {
             FAIL("Error callback should not be called");
@@ -120,8 +120,8 @@ TEST_CASE("Parse headers") {
         bool callback_called = false;
         parser.set_on_request_complete([&callback_called](const httc::Request& req) {
             callback_called = true;
-            REQUIRE(req.method() == "GET");
-            REQUIRE(req.uri().to_string() == "/index.html");
+            REQUIRE(req.method == "GET");
+            REQUIRE(req.uri.to_string() == "/index.html");
             auto host = req.header("Host");
             REQUIRE(host.has_value());
             REQUIRE(host.value() == "example.com");
@@ -179,8 +179,8 @@ TEST_CASE("Parse headers") {
         bool callback_called = false;
         parser.set_on_request_complete([&callback_called](const httc::Request& req) {
             callback_called = true;
-            REQUIRE(req.method() == "GET");
-            REQUIRE(req.uri().to_string() == "/index.html");
+            REQUIRE(req.method == "GET");
+            REQUIRE(req.uri.to_string() == "/index.html");
             auto header = req.header("X-Custom-Header");
             REQUIRE(header.has_value());
             REQUIRE(header.value() == "value with spaces");
@@ -200,8 +200,8 @@ TEST_CASE("Parse headers") {
         bool callback_called = false;
         parser.set_on_request_complete([&callback_called](const httc::Request& req) {
             callback_called = true;
-            REQUIRE(req.method() == "GET");
-            REQUIRE(req.uri().to_string() == "/index.html");
+            REQUIRE(req.method == "GET");
+            REQUIRE(req.uri.to_string() == "/index.html");
             auto header = req.header("X-Custom-Header");
             REQUIRE(header.has_value());
             REQUIRE(header.value() == "value with spaces");
@@ -272,8 +272,8 @@ TEST_CASE("Parse headers") {
         bool callback_called = false;
         parser.set_on_request_complete([&callback_called](const httc::Request& req) {
             callback_called = true;
-            REQUIRE(req.method() == "GET");
-            REQUIRE(req.uri().to_string() == "/index.html");
+            REQUIRE(req.method == "GET");
+            REQUIRE(req.uri.to_string() == "/index.html");
             auto header = req.header("X-Empty-Header");
             REQUIRE(header.has_value());
             REQUIRE(header.value() == "");
@@ -297,12 +297,12 @@ TEST_CASE("Parse Content-length bodies") {
         bool callback_called = false;
         parser.set_on_request_complete([&callback_called](const httc::Request& req) {
             callback_called = true;
-            REQUIRE(req.method() == "POST");
-            REQUIRE(req.uri().to_string() == "/submit");
+            REQUIRE(req.method == "POST");
+            REQUIRE(req.uri.to_string() == "/submit");
             auto content_length = req.header("Content-Length");
             REQUIRE(content_length.has_value());
             REQUIRE(content_length.value() == "13");
-            REQUIRE(req.body() == "Hello, World!");
+            REQUIRE(req.body == "Hello, World!");
         });
         parser.set_on_error([](httc::RequestParserError err) {
             FAIL("Error callback should not be called");
@@ -362,12 +362,12 @@ TEST_CASE("Parse chunked bodies") {
         bool callback_called = false;
         parser.set_on_request_complete([&callback_called](const httc::Request& req) {
             callback_called = true;
-            REQUIRE(req.method() == "POST");
-            REQUIRE(req.uri().to_string() == "/submit");
+            REQUIRE(req.method == "POST");
+            REQUIRE(req.uri.to_string() == "/submit");
             auto transfer_encoding = req.header("Transfer-Encoding");
             REQUIRE(transfer_encoding.has_value());
             REQUIRE(transfer_encoding.value() == "chunked");
-            REQUIRE(req.body() == "Hello, World");
+            REQUIRE(req.body == "Hello, World");
         });
         parser.set_on_error([](httc::RequestParserError err) {
             FAIL("Error callback should not be called");
@@ -417,8 +417,8 @@ TEST_CASE("Parse in multiple chunks") {
         bool callback_called = false;
         parser.set_on_request_complete([&callback_called](const httc::Request& req) {
             callback_called = true;
-            CHECK(req.method() == "GET");
-            CHECK(req.uri().to_string() == "/index.html");
+            CHECK(req.method == "GET");
+            CHECK(req.uri.to_string() == "/index.html");
             auto host = req.header("Host");
             CHECK(host.has_value());
             CHECK(host.value() == "example.com");
@@ -446,12 +446,12 @@ TEST_CASE("Parse in multiple chunks") {
         bool callback_called = false;
         parser.set_on_request_complete([&callback_called](const httc::Request& req) {
             callback_called = true;
-            CHECK(req.method() == "POST");
-            CHECK(req.uri().to_string() == "/submit");
+            CHECK(req.method == "POST");
+            CHECK(req.uri.to_string() == "/submit");
             auto content_length = req.header("Content-Length");
             CHECK(content_length.has_value());
             CHECK(content_length.value() == "13");
-            CHECK(req.body() == "Hello, World!");
+            CHECK(req.body == "Hello, World!");
         });
         parser.set_on_error([](httc::RequestParserError err) {
             FAIL("Error callback should not be called");
@@ -478,12 +478,12 @@ TEST_CASE("Parse in multiple chunks") {
         bool callback_called = false;
         parser.set_on_request_complete([&callback_called](const httc::Request& req) {
             callback_called = true;
-            CHECK(req.method() == "POST");
-            CHECK(req.uri().to_string() == "/submit");
+            CHECK(req.method == "POST");
+            CHECK(req.uri.to_string() == "/submit");
             auto transfer_encoding = req.header("Transfer-Encoding");
             CHECK(transfer_encoding.has_value());
             CHECK(transfer_encoding.value() == "chunked");
-            CHECK(req.body() == "Hello, World");
+            CHECK(req.body == "Hello, World");
         });
         parser.set_on_error([](httc::RequestParserError err) {
             FAIL("Error callback should not be called");
@@ -519,19 +519,19 @@ TEST_CASE("Multiple requests") {
     parser.set_on_request_complete([&req_count](const httc::Request& req) {
         req_count++;
         if (req_count == 1) {
-            REQUIRE(req.method() == "POST");
-            REQUIRE(req.uri().to_string() == "/abc");
+            REQUIRE(req.method == "POST");
+            REQUIRE(req.uri.to_string() == "/abc");
             auto content_length = req.header("Content-Length");
             REQUIRE(content_length.has_value());
             REQUIRE(content_length.value() == "5");
-            REQUIRE(req.body() == "Hello");
+            REQUIRE(req.body == "Hello");
         } else if (req_count == 2) {
-            REQUIRE(req.method() == "POST");
-            REQUIRE(req.uri().to_string() == "/submit");
+            REQUIRE(req.method == "POST");
+            REQUIRE(req.uri.to_string() == "/submit");
             auto content_length = req.header("Content-Length");
             REQUIRE(content_length.has_value());
             REQUIRE(content_length.value() == "13");
-            REQUIRE(req.body() == "Hello, World!");
+            REQUIRE(req.body == "Hello, World!");
         } else {
             FAIL("Unexpected request count");
         }

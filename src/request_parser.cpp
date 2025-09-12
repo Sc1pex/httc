@@ -89,8 +89,8 @@ RequestParser::ParseResult RequestParser::parse_request_line() {
     if (method_end == std::string::npos) {
         return std::unexpected(RequestParserError::INVALID_REQUEST_LINE);
     }
-    m_req.m_method = request_line.substr(0, method_end);
-    if (!valid_token(m_req.m_method)) {
+    m_req.method = request_line.substr(0, method_end);
+    if (!valid_token(m_req.method)) {
         return std::unexpected(RequestParserError::INVALID_REQUEST_LINE);
     }
 
@@ -105,7 +105,7 @@ RequestParser::ParseResult RequestParser::parse_request_line() {
     if (!uri.has_value()) {
         return std::unexpected(RequestParserError::INVALID_REQUEST_LINE);
     }
-    m_req.m_uri = *uri;
+    m_req.uri = *uri;
 
     auto version_start = uri_end + 1;
     auto version = request_line.substr(version_start);
@@ -170,7 +170,7 @@ RequestParser::ParseResult RequestParser::parse_header(const std::string& header
         return std::unexpected(RequestParserError::INVALID_HEADER);
     }
 
-    m_req.m_headers.set(std::move(name), std::move(value));
+    m_req.headers.set(std::move(name), std::move(value));
     return {};
 }
 
@@ -221,7 +221,7 @@ RequestParser::ParseResult RequestParser::parse_body_content_length() {
         return {};
     }
 
-    m_req.m_body = m_buffer.substr(0, content_length);
+    m_req.body = m_buffer.substr(0, content_length);
     m_buffer.erase(0, content_length);
     m_state = State::PARSE_COMPLETE;
     return {};
@@ -242,7 +242,7 @@ RequestParser::ParseResult RequestParser::parse_body_chunked_size() {
     if (res.ec != std::errc()) {
         return std::unexpected(RequestParserError::INVALID_CHUNK_ENCODING);
     }
-    if (chunk_size > MAX_BODY_SIZE || m_req.m_body.size() + chunk_size > MAX_BODY_SIZE) {
+    if (chunk_size > MAX_BODY_SIZE || m_req.body.size() + chunk_size > MAX_BODY_SIZE) {
         return std::unexpected(RequestParserError::CONTENT_TOO_LARGE);
     }
 
@@ -264,7 +264,7 @@ RequestParser::ParseResult RequestParser::parse_body_chunked_data() {
         return {};
     }
 
-    m_req.m_body.append(m_buffer.substr(0, m_chunk_bytes_remaining));
+    m_req.body.append(m_buffer.substr(0, m_chunk_bytes_remaining));
     m_buffer.erase(0, m_chunk_bytes_remaining);
     m_chunk_bytes_remaining = 0;
 
