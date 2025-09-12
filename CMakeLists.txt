@@ -28,4 +28,5 @@ target_sources(httc
 )
 target_link_libraries(httc PUBLIC uvw::uvw)
 
+add_subdirectory(bin)
 add_subdirectory(test)
