@@ -26,6 +26,8 @@ public:
     const std::vector<std::string>& paths() const;
     const std::vector<std::pair<std::string, std::string>>& query() const;
 
+    std::string to_string() const;
+
 private:
     URI(std::vector<std::string>&& paths, std::vector<std::pair<std::string, std::string>>&& query)
     : m_paths(std::move(paths)), m_query(std::move(query)) {

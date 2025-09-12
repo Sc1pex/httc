@@ -100,8 +100,12 @@ RequestParser::ParseResult RequestParser::parse_request_line() {
         return std::unexpected(RequestParserError::INVALID_REQUEST_LINE);
     }
 
-    // TODO: Validate URI
-    m_req.m_uri = request_line.substr(uri_start, uri_end - uri_start);
+    auto uri_str = request_line.substr(uri_start, uri_end - uri_start);
+    auto uri = URI::parse(uri_str);
+    if (!uri.has_value()) {
+        return std::unexpected(RequestParserError::INVALID_REQUEST_LINE);
+    }
+    m_req.m_uri = *uri;
 
     auto version_start = uri_end + 1;
     auto version = request_line.substr(version_start);

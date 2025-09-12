@@ -99,4 +99,8 @@ URIMatch URI::match(const URI& other) const {
     return URIMatch::FULL_MATCH;
 }
 
+std::string URI::to_string() const {
+    return std::format("{}", *this);
+}
+
 }

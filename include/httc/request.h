@@ -5,19 +5,22 @@
 #include <string>
 #include <string_view>
 #include "httc/headers.h"
+#include "httc/uri.h"
 
 namespace httc {
 
 class Request {
 public:
+    Request();
+
     std::optional<std::string_view> header(std::string_view header) const;
     std::string_view method() const;
-    std::string_view uri() const;
+    const URI& uri() const;
     std::string_view body() const;
 
 private:
     std::string m_method;
-    std::string m_uri;
+    URI m_uri;
     std::string m_body;
     Headers m_headers;
 
