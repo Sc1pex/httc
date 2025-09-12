@@ -1,5 +1,6 @@
 #pragma once
 
+#include <format>
 #include <optional>
 #include <string>
 #include <vector>
@@ -37,3 +38,25 @@ private:
 };
 
 }
+
+template<>
+struct std::formatter<httc::URI> : std::formatter<std::string> {
+    auto format(const httc::URI& uri, std::format_context& ctx) const {
+        auto out = ctx.out();
+        for (const auto& path : uri.paths()) {
+            out = std::format_to(out, "/{}", path);
+        }
+        if (!uri.query().empty()) {
+            out = std::format_to(out, "?");
+            bool first = true;
+            for (const auto& [key, value] : uri.query()) {
+                if (!first) {
+                    out = std::format_to(out, "&");
+                }
+                out = std::format_to(out, "{}={}", key, value);
+                first = false;
+            }
+        }
+        return out;
+    }
+};

@@ -190,3 +190,12 @@ TEST_CASE("URI matching") {
         REQUIRE(uri1->match(*uri2) == httc::URIMatch::FULL_MATCH);
     }
 }
+
+TEST_CASE("String formatting") {
+    auto uri = httc::URI::parse("/api/v1/users/:userId?active=true&role=admin");
+
+    REQUIRE(uri.has_value());
+
+    auto formatted = std::format("{}", *uri);
+    REQUIRE(formatted == "/api/v1/users/:userId?active=true&role=admin");
+}
