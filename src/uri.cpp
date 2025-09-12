@@ -71,20 +71,21 @@ const std::vector<std::pair<std::string, std::string>>& URI::query() const {
 }
 
 URIMatch URI::match(const URI& other) const {
-    bool param_match = false;
+    bool param_match[2] = { false, false };
 
     for (const auto& [path_a, path_b] : std::views::zip(m_paths, other.m_paths)) {
         if (path_a == "*" || path_b == "*") {
             return URIMatch::WILD_MATCH;
         }
         if (path_a != path_b) {
-            if (path_a[0] == ':' && path_b[0] == ':') {
-                // Both are parameters - treat as full match
-                continue;
+            if (path_a[0] == ':') {
+                param_match[0] = true;
             }
-            if (path_a[0] == ':' || path_b[0] == ':') {
-                param_match = true;
-            } else {
+            if (path_b[0] == ':') {
+                param_match[1] = true;
+            }
+
+            if (path_a[0] != ':' && path_b[0] != ':') {
                 return URIMatch::NO_MATCH;
             }
         }
@@ -93,7 +94,10 @@ URIMatch URI::match(const URI& other) const {
     if (m_paths.size() != other.m_paths.size()) {
         return URIMatch::NO_MATCH;
     }
-    if (param_match) {
+    if (param_match[0] && param_match[1]) {
+        return URIMatch::FULL_MATCH;
+    }
+    if (param_match[0] || param_match[1]) {
         return URIMatch::PARAM_MATCH;
     }
     return URIMatch::FULL_MATCH;
@@ -102,5 +106,4 @@ URIMatch URI::match(const URI& other) const {
 std::string URI::to_string() const {
     return std::format("{}", *this);
 }
-
 }
