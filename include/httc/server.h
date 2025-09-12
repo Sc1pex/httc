@@ -3,26 +3,21 @@
 #include <string>
 #include <uvw.hpp>
 #include "httc/common.h"
-#include "httc/request.h"
-#include "httc/response.h"
+#include "httc/router.h"
 
 namespace httc {
 
-using request_handler_fn = std::function<Response(Request)>;
-
 class Server {
 public:
-    Server(sp<uvw::loop> loop);
-
-    void set_request_handler(request_handler_fn handler);
+    Server(sp<uvw::loop> loop, Router router);
     void bind_and_listen(const std::string& addr, unsigned int port);
 
 private:
     void handle_conn(uvw::tcp_handle& tcp);
 
 private:
+    sp<Router> m_router;
     sp<uvw::loop> m_loop;
-    request_handler_fn m_req_handler;
 };
 
 }

@@ -1,10 +1,12 @@
 #include "httc/server.h"
 #include "httc/request_parser.h"
 #include "httc/response.h"
+#include "httc/status.h"
 
 namespace httc {
 
-Server::Server(sp<uvw::loop> loop) : m_loop(loop) {
+Server::Server(sp<uvw::loop> loop, Router router) : m_loop(loop) {
+    m_router = std::make_shared<Router>(router);
 }
 
 void Server::bind_and_listen(const std::string& addr, unsigned int port) {
@@ -26,8 +28,13 @@ void Server::handle_conn(uvw::tcp_handle& tcp) {
     auto req_parser = std::make_shared<RequestParser>();
 
     req_parser->set_on_request_complete([this, client](const Request& req) {
-        auto resp = m_req_handler(req);
-        resp.write(client);
+        Response res = {};
+
+        if (!m_router->handle(req, res)) {
+            res.status = StatusCode::NOT_FOUND;
+        }
+
+        res.write(client);
     });
     req_parser->set_on_error([client](RequestParserError err) {
         auto resp = Response::from_status(parse_error_to_status_code(err));
@@ -42,10 +49,6 @@ void Server::handle_conn(uvw::tcp_handle& tcp) {
     });
 
     client->read();
-}
-
-void Server::set_request_handler(request_handler_fn handler) {
-    m_req_handler = handler;
 }
 
 }
