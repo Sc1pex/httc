@@ -2,6 +2,7 @@
 
 #include <uvw/tcp.h>
 #include "httc/common.h"
+#include "httc/headers.h"
 #include "httc/status.h"
 
 namespace httc {
@@ -11,12 +12,11 @@ public:
     Response();
     static Response from_status(StatusCode status);
 
-    void set_status(StatusCode status);
-
     void write(sp<uvw::tcp_handle> client);
 
-private:
-    StatusCode m_status;
+    StatusCode status;
+    Headers headers;
+    std::string body;
 };
 
 }

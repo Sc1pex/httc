@@ -11,22 +11,25 @@ void write_fmt(
     client->write(s.data(), s.size());
 }
 
-Response::Response() : m_status(StatusCode::OK) {
+Response::Response() {
+    status = StatusCode::OK;
+    headers.set("Content-Length", "0");
 }
 
 void Response::write(sp<uvw::tcp_handle> client) {
-    write_fmt(client, "HTTP/1.1 {}\r\n", m_status.code);
-    write_fmt(client, "Content-Length: 0\r\n");
+    write_fmt(client, "HTTP/1.1 {}\r\n", status.code);
+    for (const auto& [key, value] : headers) {
+        write_fmt(client, "{}: {}\r\n", key, value);
+    }
     write_fmt(client, "\r\n");
-}
-
-void Response::set_status(StatusCode status) {
-    m_status = status;
+    if (!body.empty()) {
+        client->write(body.data(), body.size());
+    }
 }
 
 Response Response::from_status(StatusCode status) {
     Response r;
-    r.m_status = status;
+    r.status = status;
     return r;
 }
 
