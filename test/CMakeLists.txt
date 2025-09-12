@@ -4,6 +4,7 @@ target_sources(tests
         headers.cpp
         percent_encoding.cpp
         request_parser.cpp
+        router.cpp
         uri.cpp
 )
 target_link_libraries(tests PUBLIC httc)

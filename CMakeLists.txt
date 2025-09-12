@@ -21,6 +21,7 @@ target_sources(httc
         src/response.cpp
         src/request.cpp
         src/request_parser.cpp
+        src/router.cpp
         src/server.cpp
         src/status.cpp
         src/uri.cpp
