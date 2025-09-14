@@ -23,7 +23,7 @@ public:
     Router& route(const char* method, std::string_view path, HandlerFn handler);
     Router& route(std::string_view path, HandlerFn handler);
 
-    bool handle(const Request& req, Response& res) const;
+    bool handle(Request& req, Response& res) const;
 
 private:
     void add_route(Handler h);

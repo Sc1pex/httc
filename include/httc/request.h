@@ -19,6 +19,8 @@ public:
     URI uri;
     std::string body;
     Headers headers;
+
+    std::string handler_path;
 };
 
 }

@@ -21,7 +21,7 @@ class RequestParser {
 public:
     RequestParser();
 
-    using request_complete_fn = std::function<void(const Request&)>;
+    using request_complete_fn = std::function<void(Request&)>;
     using error_fn = std::function<void(RequestParserError)>;
 
     void set_on_request_complete(request_complete_fn callback);

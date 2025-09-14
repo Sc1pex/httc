@@ -10,6 +10,7 @@ TEST_CASE("Router basic routing") {
         router.route("GET", "/test", [&](const httc::Request& req, httc::Response& res) {
             handler_called = true;
             captured_path = std::format("{}", req.uri);
+            REQUIRE(req.handler_path == "/test");
         });
 
         httc::Request req;

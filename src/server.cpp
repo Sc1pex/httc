@@ -27,7 +27,7 @@ void Server::handle_conn(uvw::tcp_handle& tcp) {
 
     auto req_parser = std::make_shared<RequestParser>();
 
-    req_parser->set_on_request_complete([this, client](const Request& req) {
+    req_parser->set_on_request_complete([this, client](Request& req) {
         Response res = {};
 
         if (!m_router->handle(req, res)) {
