@@ -126,6 +126,11 @@ TEST_CASE("Parse invalid URIs") {
         auto uri = httc::URI::parse("?q=test");
         REQUIRE(!uri.has_value());
     }
+
+    SECTION("Wildcard in the middle") {
+        auto uri = httc::URI::parse("/files/*/image.png");
+        REQUIRE(!uri.has_value());
+    }
 }
 
 TEST_CASE("URI matching") {
@@ -198,6 +203,16 @@ TEST_CASE("URI matching") {
         REQUIRE(uri2.has_value());
 
         REQUIRE(uri1->match(*uri2) == httc::URIMatch::FULL_MATCH);
+    }
+
+    SECTION("Wild match base") {
+        auto uri1 = httc::URI::parse("/abc/*");
+        auto uri2 = httc::URI::parse("/abc");
+
+        REQUIRE(uri1.has_value());
+        REQUIRE(uri2.has_value());
+
+        REQUIRE(uri1->match(*uri2) == httc::URIMatch::WILD_MATCH);
     }
 }
 

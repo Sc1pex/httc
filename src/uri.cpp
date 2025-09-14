@@ -19,6 +19,12 @@ std::optional<URI> URI::parse(std::string_view uri) {
     size_t end = path.find("/", start);
     while (end != std::string::npos) {
         if (end > start) {
+            auto str = path.substr(start, end - start);
+            if (str == "*") {
+                if (end != path.size() - 1) {
+                    return std::nullopt;
+                }
+            }
             paths.push_back(path.substr(start, end - start));
         }
         start = end + 1;
@@ -92,6 +98,12 @@ URIMatch URI::match(const URI& other) const {
     }
 
     if (m_paths.size() != other.m_paths.size()) {
+        if (m_paths.size() == other.m_paths.size() + 1 && m_paths.back() == "*") {
+            return URIMatch::WILD_MATCH;
+        }
+        if (other.m_paths.size() == m_paths.size() + 1 && other.m_paths.back() == "*") {
+            return URIMatch::WILD_MATCH;
+        }
         return URIMatch::NO_MATCH;
     }
     if (param_match[0] && param_match[1]) {
