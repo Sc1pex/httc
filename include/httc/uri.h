@@ -19,7 +19,7 @@ class URI {
 public:
     URI() = delete;
 
-    static std::optional<URI> parse(const std::string& url_decoded);
+    static std::optional<URI> parse(std::string_view url_decoded);
 
     URIMatch match(const URI& other) const;
 

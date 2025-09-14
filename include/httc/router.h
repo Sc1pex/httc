@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <stdexcept>
+#include <string_view>
 #include <vector>
 #include "httc/request.h"
 #include "httc/response.h"
@@ -19,8 +20,8 @@ struct Handler {
 
 class Router {
 public:
-    Router& route(const char* method, const char* path, HandlerFn handler);
-    Router& route(const char* path, HandlerFn handler);
+    Router& route(const char* method, std::string_view path, HandlerFn handler);
+    Router& route(std::string_view path, HandlerFn handler);
 
     bool handle(const Request& req, Response& res) const;
 
@@ -40,7 +41,7 @@ public:
 
 class InvalidURI : public std::runtime_error {
 public:
-    InvalidURI(const std::string& uri) : std::runtime_error(std::format("Invalid URI: '{}'", uri)) {
+    InvalidURI(std::string_view uri) : std::runtime_error(std::format("Invalid URI: '{}'", uri)) {
     }
 };
 

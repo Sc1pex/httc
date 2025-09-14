@@ -4,9 +4,9 @@
 
 namespace httc {
 
-std::optional<URI> URI::parse(const std::string& uri) {
+std::optional<URI> URI::parse(std::string_view uri) {
     auto query_start = uri.find("?");
-    auto path = uri.substr(0, query_start);
+    auto path = std::string(uri.substr(0, query_start));
 
     std::vector<std::string> paths;
     std::vector<std::pair<std::string, std::string>> query;
@@ -32,7 +32,7 @@ std::optional<URI> URI::parse(const std::string& uri) {
         return URI{ std::move(paths), std::move(query) };
     }
 
-    std::string query_str = uri.substr(query_start + 1);
+    std::string query_str = std::string(uri.substr(query_start + 1));
     start = 0;
     end = query_str.find("&", start);
     while (end != std::string::npos) {

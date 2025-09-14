@@ -3,7 +3,7 @@
 
 namespace httc {
 
-Router& Router::route(const char* method, const char* path, HandlerFn handler) {
+Router& Router::route(const char* method, std::string_view path, HandlerFn handler) {
     auto uri = URI::parse(path);
     if (!uri.has_value()) {
         throw InvalidURI(path);
@@ -12,7 +12,7 @@ Router& Router::route(const char* method, const char* path, HandlerFn handler) {
     return *this;
 }
 
-Router& Router::route(const char* path, HandlerFn handler) {
+Router& Router::route(std::string_view path, HandlerFn handler) {
     auto uri = URI::parse(path);
     if (!uri.has_value()) {
         throw InvalidURI(path);
