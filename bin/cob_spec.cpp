@@ -5,6 +5,7 @@
 #include <print>
 #include <uvw.hpp>
 #include "httc/status.h"
+#include "httc/utils/file_server.h"
 
 struct CliArgs {
     int port;
@@ -25,23 +26,7 @@ int main(int argc, char** argv) {
     auto args = std::make_shared<CliArgs>(argc, argv);
 
     httc::Router router;
-    router.route("/*", [args](const httc::Request& req, httc::Response& res) {
-        auto path = std::string(args->file_dir) + req.uri.path();
-
-        auto file = std::ifstream(path);
-        if (!file.is_open()) {
-            res.status = httc::StatusCode::NOT_FOUND;
-            return;
-        }
-
-        std::string content(
-            (std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>()
-        );
-        res.status = httc::StatusCode::OK;
-        res.headers.override("Content-Length", std::to_string(content.size()));
-        res.headers.override("Content-Type", "text/plain");
-        res.body = std::move(content);
-    });
+    router.route("/*", httc::utils::FileServer(args->file_dir));
 
     auto loop = uvw::loop::get_default();
     httc::Server server(loop, std::move(router));
