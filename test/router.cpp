@@ -1,388 +1,305 @@
 #include "httc/router.h"
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("Router basic routing") {
-    httc::Router router;
-    bool handler_called = false;
-    std::string captured_path;
+namespace methods = httc::methods;
 
-    SECTION("Add route with method") {
-        router.route("GET", "/test", [&](const httc::Request& req, httc::Response& res) {
-            handler_called = true;
-            captured_path = std::format("{}", req.uri);
-            REQUIRE(req.handler_path == "/test");
-        });
-
-        httc::Request req;
-        req.method = "GET";
-        auto uri = httc::URI::parse("/test");
-        REQUIRE(uri.has_value());
-        req.uri = *uri;
-
-        httc::Response res;
-        bool handled = router.handle(req, res);
-
-        REQUIRE(handled);
-        REQUIRE(handler_called);
-        REQUIRE(captured_path == "/test");
-    }
-
-    SECTION("Add route without method") {
-        router.route("/test", [&](const httc::Request& req, httc::Response& res) {
-            handler_called = true;
-            captured_path = std::format("{}", req.uri);
-        });
-
-        httc::Request req;
-        req.method = "POST";
-        auto uri = httc::URI::parse("/test");
-        REQUIRE(uri.has_value());
-        req.uri = *uri;
-
-        httc::Response res;
-        bool handled = router.handle(req, res);
-
-        REQUIRE(handled);
-        REQUIRE(handler_called);
-        REQUIRE(captured_path == "/test");
-    }
-
-    SECTION("Method-specific routing") {
-        int get_calls = 0;
-        int post_calls = 0;
-
-        router.route("GET", "/test", [&](const httc::Request& req, httc::Response& res) {
-            get_calls++;
-        });
-
-        router.route("POST", "/test", [&](const httc::Request& req, httc::Response& res) {
-            post_calls++;
-        });
-
-        httc::Request get_req;
-        get_req.method = "GET";
-        auto uri = httc::URI::parse("/test");
-        REQUIRE(uri.has_value());
-        get_req.uri = *uri;
-
-        httc::Request post_req;
-        post_req.method = "POST";
-        post_req.uri = *uri;
-
-        httc::Response res;
-
-        REQUIRE(router.handle(get_req, res));
-        REQUIRE(get_calls == 1);
-        REQUIRE(post_calls == 0);
-
-        REQUIRE(router.handle(post_req, res));
-        REQUIRE(get_calls == 1);
-        REQUIRE(post_calls == 1);
-    }
-}
-
-TEST_CASE("Router path matching") {
-    httc::Router router;
-    std::string matched_path;
-
-    SECTION("Exact path match") {
-        router.route("GET", "/api/v1/users", [&](const httc::Request& req, httc::Response& res) {
-            matched_path = std::format("{}", req.uri);
-        });
-
-        httc::Request req;
-        req.method = "GET";
-        auto uri = httc::URI::parse("/api/v1/users");
-        REQUIRE(uri.has_value());
-        req.uri = *uri;
-
-        httc::Response res;
-        bool handled = router.handle(req, res);
-
-        REQUIRE(handled);
-        REQUIRE(matched_path == "/api/v1/users");
-    }
-
-    SECTION("Parameter matching") {
-        router.route("GET", "/users/:id", [&](const httc::Request& req, httc::Response& res) {
-            matched_path = std::format("{}", req.uri);
-        });
-
-        httc::Request req;
-        req.method = "GET";
-        auto uri = httc::URI::parse("/users/123");
-        REQUIRE(uri.has_value());
-        req.uri = *uri;
-
-        httc::Response res;
-        bool handled = router.handle(req, res);
-
-        REQUIRE(handled);
-        REQUIRE(matched_path == "/users/123");
-    }
-
-    SECTION("Wildcard matching") {
-        router.route("GET", "/files/*", [&](const httc::Request& req, httc::Response& res) {
-            matched_path = std::format("{}", req.uri);
-        });
-
-        httc::Request req;
-        req.method = "GET";
-        auto uri = httc::URI::parse("/files/images/photo.jpg");
-        REQUIRE(uri.has_value());
-        req.uri = *uri;
-
-        httc::Response res;
-        bool handled = router.handle(req, res);
-
-        REQUIRE(handled);
-        REQUIRE(matched_path == "/files/images/photo.jpg");
-    }
-
-    SECTION("No match") {
-        router.route("GET", "/api/users", [&](const httc::Request& req, httc::Response& res) {
-            matched_path = std::format("{}", req.uri);
-        });
-
-        httc::Request req;
-        req.method = "GET";
-        auto uri = httc::URI::parse("/api/posts");
-        REQUIRE(uri.has_value());
-        req.uri = *uri;
-
-        httc::Response res;
-        bool handled = router.handle(req, res);
-
-        REQUIRE(!handled);
-        REQUIRE(matched_path.empty());
-    }
-}
-
-TEST_CASE("Router priority handling") {
-    httc::Router router;
-    std::string handler_type;
-
-    SECTION("Full match takes priority over parameter match") {
-        router.route("GET", "/users/:id", [&](const httc::Request& req, httc::Response& res) {
-            handler_type = "parameter";
-        });
-
-        router.route("GET", "/users/admin", [&](const httc::Request& req, httc::Response& res) {
-            handler_type = "exact";
-        });
-
-        httc::Request req;
-        req.method = "GET";
-        auto uri = httc::URI::parse("/users/admin");
-        REQUIRE(uri.has_value());
-        req.uri = *uri;
-
-        httc::Response res;
-        bool handled = router.handle(req, res);
-
-        REQUIRE(handled);
-        REQUIRE(handler_type == "exact");
-    }
-
-    SECTION("Parameter match takes priority over wildcard match") {
-        router.route("GET", "/api/*", [&](const httc::Request& req, httc::Response& res) {
-            handler_type = "wildcard";
-        });
-
-        router.route("GET", "/api/:version", [&](const httc::Request& req, httc::Response& res) {
-            handler_type = "parameter";
-        });
-
-        httc::Request req;
-        req.method = "GET";
-        auto uri = httc::URI::parse("/api/v1");
-        REQUIRE(uri.has_value());
-        req.uri = *uri;
-
-        httc::Response res;
-        bool handled = router.handle(req, res);
-
-        REQUIRE(handled);
-        REQUIRE(handler_type == "parameter");
-    }
-
-    SECTION("Duplicate routes throw collision error") {
-        router.route("GET", "/test", [](const httc::Request& req, httc::Response& res) {
-        });
-
-        REQUIRE_THROWS_AS(
-            router.route(
-                "GET", "/test",
-                [](const httc::Request& req, httc::Response& res) {
-                }
-            ),
-            httc::URICollision
-        );
-    }
-}
-
-TEST_CASE("Router method filtering") {
-    httc::Router router;
-    bool handler_called = false;
-
-    router.route("POST", "/submit", [&](const httc::Request& req, httc::Response& res) {
-        handler_called = true;
-    });
-
-    SECTION("Correct method") {
-        httc::Request req;
-        req.method = "POST";
-        auto uri = httc::URI::parse("/submit");
-        REQUIRE(uri.has_value());
-        req.uri = *uri;
-
-        httc::Response res;
-        bool handled = router.handle(req, res);
-
-        REQUIRE(handled);
-        REQUIRE(handler_called);
-    }
-
-    SECTION("Wrong method") {
-        httc::Request req;
-        req.method = "GET";
-        auto uri = httc::URI::parse("/submit");
-        REQUIRE(uri.has_value());
-        req.uri = *uri;
-
-        httc::Response res;
-        bool handled = router.handle(req, res);
-
-        REQUIRE(!handled);
-        REQUIRE(!handler_called);
-    }
-}
-
-TEST_CASE("Router with query parameters") {
-    httc::Router router;
-    std::string received_query;
-
-    router.route("GET", "/search", [&](const httc::Request& req, httc::Response& res) {
-        auto& query = req.uri.query();
-        if (!query.empty()) {
-            received_query = query[0].first + "=" + query[0].second;
-        }
-    });
-
-    httc::Request req;
-    req.method = "GET";
-    auto uri = httc::URI::parse("/search?q=test");
-    REQUIRE(uri.has_value());
-    req.uri = *uri;
-
-    httc::Response res;
-    bool handled = router.handle(req, res);
-
-    REQUIRE(handled);
-    REQUIRE(received_query == "q=test");
-}
-
-TEST_CASE("Router error handling") {
+TEST_CASE("Basic routing") {
     httc::Router router;
 
-    SECTION("Invalid URI throws exception") {
-        REQUIRE_THROWS_AS(
-            router.route(
-                "GET", "invalid-path",
-                [](const httc::Request&, httc::Response&) {
-                }
-            ),
-            httc::InvalidURI
-        );
-    }
-
-    SECTION("URI collision detection") {
-        router.route("GET", "/users/:id", [](const httc::Request&, httc::Response&) {
+    SECTION("Single path no method") {
+        int called = 0;
+        router.route("/test", [&](const httc::Request&, httc::Response&) {
+            called++;
         });
 
-        REQUIRE_THROWS_AS(
-            router.route(
-                "GET", "/users/:userId",
-                [](const httc::Request&, httc::Response&) {
-                }
-            ),
-            httc::URICollision
-        );
+        httc::Request req;
+        req.method = "GET";
+        req.uri = *httc::URI::parse("/test");
+
+        httc::Response res;
+
+        bool handled = router.handle(req, res);
+        REQUIRE(handled);
+
+        req.method = "Other method";
+        handled = router.handle(req, res);
+        REQUIRE(handled);
+
+        REQUIRE(called == 2);
     }
 
-    SECTION("Different methods don't collide") {
-        router.route("GET", "/users/:id", [](const httc::Request&, httc::Response&) {
-        });
-
-        REQUIRE_NOTHROW(
-            router.route("POST", "/users/:id", [](const httc::Request&, httc::Response&) {
+    SECTION("Single path with method") {
+        int called = 0;
+        router.route(
+            "/test", httc::MethodWrapper<"GET", "POST">([&](const httc::Request&, httc::Response&) {
+                called++;
             })
         );
+
+        httc::Request req;
+        req.method = "GET";
+        req.uri = *httc::URI::parse("/test");
+
+        httc::Response res;
+
+        bool handled = router.handle(req, res);
+        REQUIRE(handled);
+
+        req.method = "POST";
+        handled = router.handle(req, res);
+        REQUIRE(handled);
+
+        req.method = "Other method";
+        handled = router.handle(req, res);
+        REQUIRE(!handled);
+
+        REQUIRE(called == 2);
     }
 
-    SECTION("Method-agnostic routes can collide") {
-        router.route("/users/:id", [](const httc::Request&, httc::Response&) {
+    SECTION("Single path with method and global") {
+        int called_global = 0;
+        int called_method = 0;
+        router.route("/test", [&](const httc::Request&, httc::Response&) {
+            called_global++;
         });
-
-        REQUIRE_THROWS_AS(
-            router.route(
-                "/users/:userId",
-                [](const httc::Request&, httc::Response&) {
-                }
-            ),
-            httc::URICollision
+        router.route(
+            "/test", httc::MethodWrapper<"GET", "POST">([&](const httc::Request&, httc::Response&) {
+                called_method++;
+            })
         );
+
+        httc::Request req;
+        req.method = "GET";
+        req.uri = *httc::URI::parse("/test");
+
+        httc::Response res;
+
+        bool handled = router.handle(req, res);
+        REQUIRE(handled);
+        REQUIRE(called_method == 1);
+        REQUIRE(called_global == 0);
+
+        req.method = "POST";
+        handled = router.handle(req, res);
+        REQUIRE(handled);
+        REQUIRE(called_method == 2);
+        REQUIRE(called_global == 0);
+
+        req.method = "Other method";
+        handled = router.handle(req, res);
+        REQUIRE(handled);
+        REQUIRE(called_method == 2);
+        REQUIRE(called_global == 1);
     }
 }
 
-TEST_CASE("Router chaining") {
+TEST_CASE("Routing collisions") {
     httc::Router router;
-    int handler_count = 0;
 
-    SECTION("Method chaining works") {
-        auto& result = router
-                           .route(
-                               "GET", "/test1",
-                               [&](const httc::Request&, httc::Response&) {
-                                   handler_count++;
-                               }
-                           )
-                           .route(
-                               "POST", "/test2",
-                               [&](const httc::Request&, httc::Response&) {
-                                   handler_count++;
-                               }
-                           )
-                           .route("/test3", [&](const httc::Request&, httc::Response&) {
-                               handler_count++;
-                           });
+    router.route("/test", [](const httc::Request&, httc::Response&) {
+    });
 
-        REQUIRE(&result == &router);
+    REQUIRE_THROWS_AS(
+        router.route(
+            "/test",
+            [](const httc::Request&, httc::Response&) {
+            }
+        ),
+        httc::URICollision
+    );
 
-        // Test that all routes were added
+    router.route("/method_test", methods::get([](const httc::Request&, httc::Response&) {
+                 }));
+
+    REQUIRE_THROWS_AS(
+        router.route(
+            "/method_test",
+            httc::MethodWrapper<"GET", "POST">([](const httc::Request&, httc::Response&) {
+            })
+        ),
+        httc::URICollision
+    );
+
+    // Different method should be fine
+    REQUIRE_NOTHROW(
+        router.route("/method_test", methods::post([](const httc::Request&, httc::Response&) {
+                     }))
+    );
+}
+
+TEST_CASE("Invalid URIs") {
+    httc::Router router;
+
+    REQUIRE_THROWS_AS(
+        router.route(
+            "invalid uri",
+            [](const httc::Request&, httc::Response&) {
+            }
+        ),
+        httc::InvalidURI
+    );
+
+    REQUIRE_THROWS_AS(
+        router.route(
+            "/also/invalid?query=param",
+            [](const httc::Request&, httc::Response&) {
+            }
+        ),
+        httc::InvalidURI
+    );
+}
+
+TEST_CASE("No matching route") {
+    httc::Router router;
+
+    SECTION("No path") {
+        router.route("/test", [](const httc::Request&, httc::Response&) {
+        });
+
+        httc::Request req;
+        req.method = "GET";
+        req.uri = *httc::URI::parse("/nope");
+
         httc::Response res;
 
-        httc::Request req1;
-        req1.method = "GET";
-        auto uri1 = httc::URI::parse("/test1");
-        REQUIRE(uri1.has_value());
-        req1.uri = *uri1;
+        bool handled = router.handle(req, res);
+        REQUIRE(!handled);
+    }
 
-        httc::Request req2;
-        req2.method = "POST";
-        auto uri2 = httc::URI::parse("/test2");
-        REQUIRE(uri2.has_value());
-        req2.uri = *uri2;
+    SECTION("Path but no method") {
+        router.route("/test", methods::post([](const httc::Request&, httc::Response&) {
+                     }));
 
-        httc::Request req3;
-        req3.method = "DELETE";
-        auto uri3 = httc::URI::parse("/test3");
-        REQUIRE(uri3.has_value());
-        req3.uri = *uri3;
+        httc::Request req;
+        req.method = "GET";
+        req.uri = *httc::URI::parse("/test");
 
-        REQUIRE(router.handle(req1, res));
-        REQUIRE(router.handle(req2, res));
-        REQUIRE(router.handle(req3, res));
-        REQUIRE(handler_count == 3);
+        httc::Response res;
+
+        bool handled = router.handle(req, res);
+        REQUIRE(!handled);
+    }
+}
+
+TEST_CASE("Complex routing 1") {
+    httc::Router router;
+    std::unordered_map<int, int> call_count;
+
+    router.route("/abc/def", [&](const httc::Request&, httc::Response&) {
+        call_count[0]++;
+    });
+    router.route("/abc/:param", [&](const httc::Request&, httc::Response&) {
+        call_count[1]++;
+    });
+    router.route("/abc/abc/def", [&](const httc::Request&, httc::Response&) {
+        call_count[2]++;
+    });
+    router.route("/abc/abc/*", [&](const httc::Request&, httc::Response&) {
+        call_count[3]++;
+    });
+
+    auto verify_called = [&](int index) {
+        REQUIRE(call_count.contains(index));
+        REQUIRE(call_count[index] == 1);
+
+        for (const auto& [key, value] : call_count) {
+            if (key != index) {
+                REQUIRE(value == 0);
+            }
+        }
+    };
+
+    httc::Request req;
+    httc::Response res;
+
+    SECTION("Exact match") {
+        req.method = "GET";
+        req.uri = *httc::URI::parse("/abc/def");
+
+        bool handled = router.handle(req, res);
+        REQUIRE(handled);
+        verify_called(0);
+    }
+
+    SECTION("Param match") {
+        req.method = "GET";
+        req.uri = *httc::URI::parse("/abc/value");
+
+        bool handled = router.handle(req, res);
+        REQUIRE(handled);
+        verify_called(1);
+    }
+
+    SECTION("Wildcard match 1") {
+        req.method = "GET";
+        req.uri = *httc::URI::parse("/abc/abc/abc");
+
+        bool handled = router.handle(req, res);
+        REQUIRE(handled);
+        verify_called(3);
+    }
+
+    SECTION("Wildcard match 2") {
+        req.method = "GET";
+        req.uri = *httc::URI::parse("/abc/abc/very/deep/path");
+
+        bool handled = router.handle(req, res);
+        REQUIRE(handled);
+        verify_called(3);
+    }
+}
+
+TEST_CASE("Complex routing 2") {
+    httc::Router router;
+    std::unordered_map<int, int> call_count;
+
+    router.route("/a/b", methods::get([&](const httc::Request&, httc::Response&) {
+                     call_count[0]++;
+                 }));
+    router.route("/a/:param", methods::post([&](const httc::Request&, httc::Response&) {
+                     call_count[1]++;
+                 }));
+    router.route("/a/*", ([&](const httc::Request&, httc::Response&) {
+                     call_count[2]++;
+                 }));
+
+    auto verify_called = [&](int index) {
+        REQUIRE(call_count.contains(index));
+        REQUIRE(call_count[index] == 1);
+
+        for (const auto& [key, value] : call_count) {
+            if (key != index) {
+                REQUIRE(value == 0);
+            }
+        }
+    };
+
+    httc::Request req;
+    httc::Response res;
+    SECTION("Exact match with method") {
+        req.method = "GET";
+        req.uri = *httc::URI::parse("/a/b");
+
+        bool handled = router.handle(req, res);
+        REQUIRE(handled);
+        verify_called(0);
+    }
+
+    SECTION("Param match with method") {
+        req.method = "POST";
+        req.uri = *httc::URI::parse("/a/value");
+
+        bool handled = router.handle(req, res);
+        REQUIRE(handled);
+        verify_called(1);
+    }
+
+    SECTION("Wildcard match no method") {
+        req.method = "GET";
+        req.uri = *httc::URI::parse("/a/anything/here");
+
+        bool handled = router.handle(req, res);
+        REQUIRE(handled);
+        verify_called(2);
     }
 }

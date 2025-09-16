@@ -3,48 +3,61 @@
 
 namespace httc {
 
-Router& Router::route(const char* method, std::string_view path, HandlerFn handler) {
-    auto uri = URI::parse(path);
-    if (!uri.has_value()) {
+void Router::add_route(
+    HandlerFn f, std::string_view path, std::optional<std::vector<std::string>> methods
+) {
+    auto uri_opt = URI::parse(path);
+    if (!uri_opt.has_value() || !uri_opt->query().empty()) {
         throw InvalidURI(path);
     }
-    add_route({ *uri, handler, method });
-    return *this;
-}
+    URI uri = *uri_opt;
 
-Router& Router::route(std::string_view path, HandlerFn handler) {
-    auto uri = URI::parse(path);
-    if (!uri.has_value()) {
-        throw InvalidURI(path);
-    }
-    add_route({ *uri, handler, std::nullopt });
-    return *this;
-}
+    for (auto& handlers : m_handlers) {
+        auto match = handlers.path.match(uri);
+        if (match == URIMatch::FULL_MATCH) {
+            if (!methods.has_value()) {
+                if (handlers.global_handler.has_value()) {
+                    throw URICollision(uri, handlers.path);
+                }
 
-void Router::add_route(Handler h) {
-    for (const auto& handlers : m_handlers) {
-        auto match = handlers.uri.match(h.uri);
-        if (h.method == handlers.method && match == URIMatch::FULL_MATCH) {
-            throw URICollision(h.uri, handlers.uri);
+                handlers.global_handler = f;
+
+                return;
+            }
+
+            for (const auto& method : *methods) {
+                if (handlers.method_handlers.contains(method)) {
+                    throw URICollision(uri, handlers.path);
+                }
+            }
+            for (const auto& method : *methods) {
+                handlers.method_handlers[method] = f;
+            }
+            return;
         }
     }
-    m_handlers.push_back(std::move(h));
+
+    HandlerPath new_handler(uri);
+    if (methods.has_value()) {
+        for (const auto& method : *methods) {
+            new_handler.method_handlers[method] = f;
+        }
+    } else {
+        new_handler.global_handler = f;
+    }
+    m_handlers.push_back(std::move(new_handler));
 }
 
 bool Router::handle(Request& req, Response& res) const {
     // [0] = full match
     // [1] = param match
     // [2] = wildcard match
-    const Handler* matches[3] = {};
+    const HandlerPath* matches[3] = {};
 
     for (const auto& handler : m_handlers) {
-        if (handler.method.has_value() && req.method != *handler.method) {
-            continue;
-        }
-        auto match = handler.uri.match(req.uri);
+        auto match = handler.path.match(req.uri);
         if (match == URIMatch::FULL_MATCH) {
             matches[0] = &handler;
-            break;
         } else if (match == URIMatch::PARAM_MATCH) {
             matches[1] = &handler;
         } else if (match == URIMatch::WILD_MATCH) {
@@ -54,9 +67,13 @@ bool Router::handle(Request& req, Response& res) const {
 
     for (const auto& m : matches) {
         if (m != nullptr) {
-            req.handler_path = m->uri.to_string();
-            m->h(req, res);
-            return true;
+            if (m->method_handlers.contains(req.method)) {
+                m->method_handlers.at(req.method)(req, res);
+                return true;
+            } else if (m->global_handler.has_value()) {
+                (*m->global_handler)(req, res);
+                return true;
+            }
         }
     }
 
