@@ -13,7 +13,8 @@ TEST_CASE("Parse valid URIs") {
     SECTION("Root path") {
         auto uri = httc::URI::parse("/");
         REQUIRE(uri.has_value());
-        REQUIRE(uri->paths().empty());
+        REQUIRE(uri->paths().size() == 1);
+        REQUIRE(uri->paths()[0] == "");
         REQUIRE(uri->query().empty());
     }
 
@@ -30,10 +31,11 @@ TEST_CASE("Parse valid URIs") {
     SECTION("Path with trailing slash") {
         auto uri = httc::URI::parse("/api/v1/users/");
         REQUIRE(uri.has_value());
-        REQUIRE(uri->paths().size() == 3);
+        REQUIRE(uri->paths().size() == 4);
         REQUIRE(uri->paths()[0] == "api");
         REQUIRE(uri->paths()[1] == "v1");
         REQUIRE(uri->paths()[2] == "users");
+        REQUIRE(uri->paths()[3] == "");
         REQUIRE(uri->query().empty());
     }
 
@@ -139,12 +141,14 @@ TEST_CASE("URI matching") {
     auto uri3 = httc::URI::parse("/api/v1/users/:userId");
     auto uri4 = httc::URI::parse("/api/v1/*");
     auto uri5 = httc::URI::parse("/api/v1/users");
+    auto uri6 = httc::URI::parse("/api/v1/users/");
 
     REQUIRE(uri1.has_value());
     REQUIRE(uri2.has_value());
     REQUIRE(uri3.has_value());
     REQUIRE(uri4.has_value());
     REQUIRE(uri5.has_value());
+    REQUIRE(uri6.has_value());
 
     SECTION("Full match") {
         REQUIRE(uri1->match(*uri5) == httc::URIMatch::FULL_MATCH);
@@ -163,6 +167,11 @@ TEST_CASE("URI matching") {
         REQUIRE(uri1->match(*uri2) == httc::URIMatch::NO_MATCH);
         REQUIRE(uri2->match(*uri1) == httc::URIMatch::NO_MATCH);
         REQUIRE(uri3->match(*uri1) == httc::URIMatch::NO_MATCH);
+    }
+
+    SECTION("Trailing slash no match") {
+        REQUIRE(uri1->match(*uri6) == httc::URIMatch::NO_MATCH);
+        REQUIRE(uri6->match(*uri1) == httc::URIMatch::NO_MATCH);
     }
 
     SECTION("Match both ways") {

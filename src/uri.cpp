@@ -30,9 +30,7 @@ std::optional<URI> URI::parse(std::string_view uri) {
         start = end + 1;
         end = path.find("/", start);
     }
-    if (start < path.size()) {
-        paths.push_back(path.substr(start));
-    }
+    paths.push_back(path.substr(start));
 
     if (query_start == std::string::npos) {
         return URI{ std::move(paths), std::move(query) };
