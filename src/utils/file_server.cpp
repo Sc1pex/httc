@@ -22,7 +22,7 @@ std::vector<std::string> FileServer::getAllowedMethods() const {
 }
 
 void FileServer::operator()(const Request& req, Response& res) {
-    // // Prevent directory traversal attacks
+    // Prevent directory traversal attacks
     if (req.wildcard_path.find("..") != std::string::npos) {
         res.status = StatusCode::BAD_REQUEST;
         res.body = "";
