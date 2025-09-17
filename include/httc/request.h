@@ -20,7 +20,8 @@ public:
     std::string body;
     Headers headers;
 
-    std::string handler_path;
+    std::string wildcard_path;
+    std::unordered_map<std::string, std::string> path_params;
 };
 
 }

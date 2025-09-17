@@ -303,3 +303,22 @@ TEST_CASE("Complex routing 2") {
         verify_called(2);
     }
 }
+
+TEST_CASE("Param and wildcard extraction") {
+    httc::Router router;
+
+    router.route("/files/:fileId/*", [](const httc::Request& req, httc::Response&) {
+        REQUIRE(req.path_params.contains("fileId"));
+        REQUIRE(req.path_params.at("fileId") == "12345");
+        REQUIRE(req.wildcard_path == "path/to/file.txt");
+    });
+
+    httc::Request req;
+    req.method = "GET";
+    req.uri = *httc::URI::parse("/files/12345/path/to/file.txt");
+
+    httc::Response res;
+
+    bool handled = router.handle(req, res);
+    REQUIRE(handled);
+}

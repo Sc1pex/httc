@@ -1,5 +1,6 @@
 #include "httc/router.h"
 #include "httc/request.h"
+#include "httc/response.h"
 
 namespace httc {
 
@@ -48,6 +49,28 @@ void Router::add_route(
     m_handlers.push_back(std::move(new_handler));
 }
 
+void run_handler(HandlerFn f, const URI& handler_path, Request& req, Response& res) {
+    auto req_paths = req.uri.paths();
+    auto handler_paths = handler_path.paths();
+    for (size_t i = 0; i < handler_paths.size(); i++) {
+        if (handler_paths[i] == "*") {
+            req.wildcard_path = "";
+            for (size_t j = i; j < req_paths.size(); j++) {
+                if (j > i) {
+                    req.wildcard_path += "/";
+                }
+                req.wildcard_path += req_paths[j];
+            }
+            break;
+        } else if (!handler_paths[i].empty() && handler_paths[i][0] == ':') {
+            auto param_name = handler_paths[i].substr(1);
+            req.path_params[param_name] = req_paths[i];
+        }
+    }
+
+    f(req, res);
+}
+
 bool Router::handle(Request& req, Response& res) const {
     // [0] = full match
     // [1] = param match
@@ -68,10 +91,10 @@ bool Router::handle(Request& req, Response& res) const {
     for (const auto& m : matches) {
         if (m != nullptr) {
             if (m->method_handlers.contains(req.method)) {
-                m->method_handlers.at(req.method)(req, res);
+                run_handler(m->method_handlers.at(req.method), m->path, req, res);
                 return true;
             } else if (m->global_handler.has_value()) {
-                (*m->global_handler)(req, res);
+                run_handler(*m->global_handler, m->path, req, res);
                 return true;
             }
         }
