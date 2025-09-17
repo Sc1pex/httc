@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
     auto args = std::make_shared<CliArgs>(argc, argv);
 
     httc::Router router;
-    router.route("/*", httc::utils::FileServer(args->file_dir));
+    router.route("/*", httc::utils::FileServer(args->file_dir, true));
 
     auto loop = uvw::loop::get_default();
     httc::Server server(loop, std::move(router));

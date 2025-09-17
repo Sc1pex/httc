@@ -159,11 +159,75 @@ void FileServer::get(const Request& req, Response& res, fs::path path) {
 }
 
 void FileServer::put(const Request& req, Response& res, fs::path path) {
-    std::println("Creating file at: {}", path.string());
+    bool dir = path.has_filename() == false;
+    if (dir && fs::exists(path)) {
+        res.status = StatusCode::CONFLICT;
+        res.body = "Directory already exists";
+        res.headers.set("Content-Type", "text/plain");
+        res.headers.set("Content-Length", std::to_string(res.body.size()));
+        return;
+    }
+
+    if (dir) {
+        fs::create_directories(path);
+        res.status = StatusCode::CREATED;
+        return;
+    }
+
+    if (fs::exists(path)) {
+        // Overwrite existing file
+        std::ofstream file(path);
+        if (!file.is_open() || !file.good()) {
+            res.status = StatusCode::INTERNAL_SERVER_ERROR;
+            res.body = "Failed to open file for writing";
+            res.headers.set("Content-Type", "text/plain");
+            res.headers.set("Content-Length", std::to_string(res.body.size()));
+            return;
+        }
+        file << req.body;
+        file.close();
+        res.status = StatusCode::OK;
+    } else {
+        fs::create_directories(path.parent_path());
+        std::ofstream file(path);
+        if (!file.is_open() || !file.good()) {
+            res.status = StatusCode::INTERNAL_SERVER_ERROR;
+            res.body = "Failed to create file";
+            res.headers.set("Content-Type", "text/plain");
+            res.headers.set("Content-Length", std::to_string(res.body.size()));
+            return;
+        }
+        file << req.body;
+        file.close();
+        res.status = StatusCode::CREATED;
+    }
 }
 
 void FileServer::del(const Request& req, Response& res, fs::path path) {
-    std::println("Deleting file at: {}", path.string());
+    if (!fs::exists(path)) {
+        res.status = StatusCode::NOT_FOUND;
+        res.body = "File not found";
+        res.headers.set("Content-Type", "text/plain");
+        res.headers.set("Content-Length", std::to_string(res.body.size()));
+        return;
+    }
+
+    std::error_code ec;
+    if (fs::is_directory(path)) {
+        fs::remove_all(path, ec);
+    } else {
+        fs::remove(path, ec);
+    }
+
+    if (ec) {
+        res.status = StatusCode::INTERNAL_SERVER_ERROR;
+        res.body = "Failed to delete file or directory";
+        res.headers.set("Content-Type", "text/plain");
+        res.headers.set("Content-Length", std::to_string(res.body.size()));
+        return;
+    }
+
+    res.status = StatusCode::OK;
 }
 }
 }
