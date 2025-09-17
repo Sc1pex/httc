@@ -3,9 +3,9 @@
 
 TEST_CASE("Headers case-insensitive lookup") {
     httc::Headers headers;
-    headers.set("Content-Type", "application/json");
-    headers.set("content-length", "123");
-    headers.set("X-Custom-Header", "value1");
+    headers.add("Content-Type", "application/json");
+    headers.add("content-length", "123");
+    headers.add("X-Custom-Header", "value1");
 
     SECTION("Get existing headers with different casing") {
         auto ct = headers.get("content-type");
@@ -29,9 +29,9 @@ TEST_CASE("Headers case-insensitive lookup") {
 
 TEST_CASE("Combine multiple headers with same name") {
     httc::Headers headers;
-    headers.set("Set-Cookie", "id=123");
-    headers.set("set-cookie", "session=abc");
-    headers.set("SET-COOKIE", "theme=dark");
+    headers.add("Set-Cookie", "id=123");
+    headers.add("set-cookie", "session=abc");
+    headers.add("SET-COOKIE", "theme=dark");
 
     auto sc = headers.get("Set-Cookie");
     REQUIRE(sc.has_value());
@@ -40,8 +40,8 @@ TEST_CASE("Combine multiple headers with same name") {
 
 TEST_CASE("Headers iterator interface") {
     httc::Headers headers;
-    headers.set("Header-One", "value1");
-    headers.set("Header-Two", "value2");
+    headers.add("Header-One", "value1");
+    headers.add("Header-Two", "value2");
 
     std::unordered_map<std::string, std::string> expected = { { "Header-One", "value1" },
                                                               { "Header-Two", "value2" } };

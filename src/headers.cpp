@@ -4,12 +4,7 @@
 namespace httc {
 
 void Headers::set(std::string_view header, std::string_view value) {
-    auto current = get(header);
-    if (current.has_value()) {
-        m_map[std::string(header)] = std::format("{}, {}", *current, value);
-    } else {
-        m_map.emplace(std::string(header), std::string(value));
-    }
+    m_map[std::string(header)] = std::string(value);
 }
 
 std::optional<std::string_view> Headers::get(std::string_view header) const {
@@ -30,8 +25,13 @@ bool Headers::unset(std::string_view header) {
     }
 }
 
-void Headers::override(std::string_view header, std::string_view value) {
-    m_map[std::string(header)] = std::string(value);
+void Headers::add(std::string_view header, std::string_view value) {
+    auto current = get(header);
+    if (current.has_value()) {
+        m_map[std::string(header)] = std::format("{}, {}", *current, value);
+    } else {
+        m_map.emplace(std::string(header), std::string(value));
+    }
 }
 
 }
