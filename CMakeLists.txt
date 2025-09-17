@@ -26,6 +26,7 @@ target_sources(httc
         src/status.cpp
         src/uri.cpp
         src/utils/file_server.cpp
+        src/utils/mime.cpp
 )
 target_link_libraries(httc PUBLIC uvw::uvw)
 

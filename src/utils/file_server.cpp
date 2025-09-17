@@ -2,6 +2,7 @@
 #include <fstream>
 #include <print>
 #include "httc/status.h"
+#include "httc/utils/mime.h"
 
 namespace fs = std::filesystem;
 
@@ -52,10 +53,11 @@ void serve_file(Response& res, fs::path path) {
         return;
     }
 
+    auto mime_type = utils::mime_type(path).value_or("application/octet-stream");
     std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     res.status = StatusCode::OK;
     res.body = std::move(content);
-    res.headers.set("Content-Type", "text/plain");
+    res.headers.set("Content-Type", mime_type);
     res.headers.set("Content-Length", std::to_string(res.body.size()));
 }
 
