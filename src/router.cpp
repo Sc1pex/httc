@@ -88,6 +88,7 @@ bool Router::handle(Request& req, Response& res) const {
         }
     }
 
+    bool method_not_allowed = false;
     for (const auto& m : matches) {
         if (m != nullptr) {
             if (m->method_handlers.contains(req.method)) {
@@ -96,8 +97,15 @@ bool Router::handle(Request& req, Response& res) const {
             } else if (m->global_handler.has_value()) {
                 run_handler(*m->global_handler, m->path, req, res);
                 return true;
+            } else {
+                method_not_allowed = true;
             }
         }
+    }
+
+    if (method_not_allowed) {
+        res.status = StatusCode::METHOD_NOT_ALLOWED;
+        return true;
     }
 
     return false;
