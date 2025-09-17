@@ -142,6 +142,7 @@ TEST_CASE("URI matching") {
     auto uri4 = httc::URI::parse("/api/v1/*");
     auto uri5 = httc::URI::parse("/api/v1/users");
     auto uri6 = httc::URI::parse("/api/v1/users/");
+    auto uri7 = httc::URI::parse("/api/v1/users/:userId/*");
 
     REQUIRE(uri1.has_value());
     REQUIRE(uri2.has_value());
@@ -149,6 +150,7 @@ TEST_CASE("URI matching") {
     REQUIRE(uri4.has_value());
     REQUIRE(uri5.has_value());
     REQUIRE(uri6.has_value());
+    REQUIRE(uri7.has_value());
 
     SECTION("Full match") {
         REQUIRE(uri1->match(*uri5) == httc::URIMatch::FULL_MATCH);
@@ -161,6 +163,7 @@ TEST_CASE("URI matching") {
     SECTION("Wildcard match") {
         REQUIRE(uri4->match(*uri2) == httc::URIMatch::WILD_MATCH);
         REQUIRE(uri4->match(*uri1) == httc::URIMatch::WILD_MATCH);
+        REQUIRE(uri7->match(*uri2) == httc::URIMatch::WILD_MATCH);
     }
 
     SECTION("No match") {
