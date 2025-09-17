@@ -10,16 +10,19 @@ namespace utils {
 
 class FileServer {
 public:
-    FileServer(std::string path);
+    FileServer(std::string path, bool allow_modify = false);
 
     void operator()(const Request& req, Response& res);
+    std::vector<std::string> getAllowedMethods() const;
 
 private:
-    void handle_dir(std::filesystem::path path, Response& res);
-    void handle_file(std::filesystem::path path, Response& res);
+    void get(const Request& req, Response& res, std::filesystem::path path);
+    void put(const Request& req, Response& res, std::filesystem::path path);
+    void del(const Request& req, Response& res, std::filesystem::path path);
 
 private:
-    std::string m_path;
+    bool m_allow_modify;
+    std::filesystem::path m_path;
 };
 
 }

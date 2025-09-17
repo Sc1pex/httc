@@ -1,10 +1,8 @@
 #include <httc/router.h>
 #include <httc/server.h>
 #include <cstring>
-#include <fstream>
 #include <print>
 #include <uvw.hpp>
-#include "httc/status.h"
 #include "httc/utils/file_server.h"
 
 struct CliArgs {

@@ -8,68 +8,162 @@ namespace fs = std::filesystem;
 namespace httc {
 namespace utils {
 
-FileServer::FileServer(std::string path) : m_path(path) {
+FileServer::FileServer(std::string path, bool allow_modify)
+: m_path(path), m_allow_modify(allow_modify) {
+}
+
+std::vector<std::string> FileServer::getAllowedMethods() const {
+    if (m_allow_modify) {
+        return { "GET", "PUT", "DELETE" };
+    } else {
+        return { "GET" };
+    }
 }
 
 void FileServer::operator()(const Request& req, Response& res) {
-    // Extract the file path from the request URI
-    auto file_path = req.uri.path().substr(req.handler_path.size() - 1);
-
-    // Prevent directory traversal attacks
-    if (file_path.find("..") != std::string::npos) {
+    // // Prevent directory traversal attacks
+    if (req.wildcard_path.find("..") != std::string::npos) {
         res.status = StatusCode::BAD_REQUEST;
         res.body = "";
         return;
     }
 
-    // Construct the full file path
-    fs::path full_path = fs::path(m_path) / fs::path(file_path);
-    if (!fs::exists(full_path)) {
-        res.status = StatusCode::NOT_FOUND;
-        res.body = "";
-        return;
+    fs::path full_path = m_path;
+    if (!req.wildcard_path.empty()) {
+        full_path /= req.wildcard_path;
     }
 
-    if (fs::is_directory(full_path)) {
-        handle_dir(full_path, res);
-    } else if (fs::is_regular_file(full_path)) {
-        handle_file(full_path, res);
-    } else {
-        res.status = StatusCode::NOT_FOUND;
-        res.body = "";
+    if (req.method == "GET") {
+        get(req, res, full_path);
+    } else if (req.method == "PUT") {
+        put(req, res, full_path);
+    } else if (req.method == "DELETE") {
+        del(req, res, full_path);
     }
 }
 
-void FileServer::handle_dir(fs::path path, Response& res) {
-    std::string body = "<!DOCTYPE html>\n<html><body><ul>";
-    for (const auto& entry : fs::directory_iterator(path)) {
-        std::string name = entry.path().filename().string();
-        if (fs::is_directory(entry.path())) {
-            name += "/";
-        }
-        body += "<li><a href=\"" + name + "\">" + name + "</a></li>\n";
-    }
-    body += "</ul></body></html>";
-    res.status = StatusCode::OK;
-    res.body = body;
-    res.headers.override("Content-Length", std::to_string(body.size()));
-    res.headers.override("Content-Type", "text/html");
-}
-
-void FileServer::handle_file(fs::path path, Response& res) {
+void serve_file(Response& res, fs::path path) {
     std::ifstream file(path);
-    if (!file) {
-        res.status = StatusCode::NOT_FOUND;
-        res.body = "";
+    if (!file.is_open() || !file.good()) {
+        res.status = StatusCode::INTERNAL_SERVER_ERROR;
+        res.body = "Failed to open file";
+        res.headers.set("Content-Type", "text/plain");
+        res.headers.set("Content-Length", std::to_string(res.body.size()));
         return;
     }
 
-    std::string body((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     res.status = StatusCode::OK;
-    res.body = body;
-    res.headers.override("Content-Length", std::to_string(body.size()));
-    res.headers.override("Content-Type", "text/plain");
+    res.body = std::move(content);
+    res.headers.set("Content-Type", "text/plain");
+    res.headers.set("Content-Length", std::to_string(res.body.size()));
 }
 
+void serve_directory(Response& res, fs::path path, bool root) {
+    std::string body = R"(<!DOCTYPE html>
+<html>
+<head>
+    <title>Directory Listing</title>
+    <meta charset="UTF-8">
+    <style>
+        body { 
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background: #fafafa;
+        }
+        h1 { 
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        a { 
+            color: #0066cc;
+            text-decoration: none;
+        }
+        a:hover { 
+            text-decoration: underline;
+        }
+        ul { 
+            list-style: none;
+            padding: 0;
+        }
+        li { 
+            padding: 5px 0;
+        }
+        .parent { 
+            margin: 10px 0;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>)";
+
+    body += path.string();
+    body += "</h1>\n";
+
+    if (!root) {
+        body += R"(<div class="parent"><a href="../">.. (parent directory)</a></div>)";
+    }
+
+    body += "<ul>\n";
+
+    // Directories first
+    for (const auto& entry : fs::directory_iterator(path)) {
+        std::string filename = entry.path().filename().string();
+        std::string href = filename;
+
+        if (entry.is_directory()) {
+            href += "/";
+            filename += "/";
+            body += "<li><a href=\"" + href + "\">" + filename + "</a></li>\n";
+        }
+    }
+
+    for (const auto& entry : fs::directory_iterator(path)) {
+        std::string filename = entry.path().filename().string();
+        std::string href = filename;
+
+        if (!entry.is_directory()) {
+            body += "<li><a href=\"" + href + "\">" + filename + "</a></li>\n";
+        }
+    }
+
+    body += "</ul>\n</body></html>";
+
+    res.status = StatusCode::OK;
+    res.body = std::move(body);
+    res.headers.set("Content-Type", "text/html");
+    res.headers.set("Content-Length", std::to_string(res.body.size()));
+}
+
+void FileServer::get(const Request& req, Response& res, fs::path path) {
+    if (!fs::exists(path)) {
+        res.status = StatusCode::NOT_FOUND;
+        res.body = "File not found";
+        res.headers.set("Content-Type", "text/plain");
+        res.headers.set("Content-Length", std::to_string(res.body.size()));
+        return;
+    }
+
+    if (fs::is_directory(path)) {
+        serve_directory(res, path, path == m_path);
+    } else if (fs::is_regular_file(path)) {
+        serve_file(res, path);
+    } else {
+        res.status = StatusCode::FORBIDDEN;
+        res.body = "Access denied";
+        res.headers.set("Content-Type", "text/plain");
+        res.headers.set("Content-Length", std::to_string(res.body.size()));
+    }
+}
+
+void FileServer::put(const Request& req, Response& res, fs::path path) {
+    std::println("Creating file at: {}", path.string());
+}
+
+void FileServer::del(const Request& req, Response& res, fs::path path) {
+    std::println("Deleting file at: {}", path.string());
+}
 }
 }
