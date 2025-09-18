@@ -16,14 +16,12 @@ TEST_CASE("Basic routing") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/test");
 
-        httc::Response res;
-
-        bool handled = router.handle(req, res);
-        REQUIRE(handled);
+        auto result = router.handle(req);
+        REQUIRE(result.has_value());
 
         req.method = "Other method";
-        handled = router.handle(req, res);
-        REQUIRE(handled);
+        result = router.handle(req);
+        REQUIRE(result.has_value());
 
         REQUIRE(called == 2);
     }
@@ -40,18 +38,17 @@ TEST_CASE("Basic routing") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/test");
 
-        httc::Response res;
-
-        bool handled = router.handle(req, res);
-        REQUIRE(handled);
+        auto result = router.handle(req);
+        REQUIRE(result.has_value());
 
         req.method = "POST";
-        handled = router.handle(req, res);
-        REQUIRE(handled);
+        result = router.handle(req);
+        REQUIRE(result.has_value());
 
         req.method = "Other method";
-        handled = router.handle(req, res);
-        REQUIRE(!handled);
+        result = router.handle(req);
+        REQUIRE(result.has_value());
+        REQUIRE(result->status.code == 405); // Method Not Allowed
 
         REQUIRE(called == 2);
     }
@@ -72,22 +69,20 @@ TEST_CASE("Basic routing") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/test");
 
-        httc::Response res;
-
-        bool handled = router.handle(req, res);
-        REQUIRE(handled);
+        auto result = router.handle(req);
+        REQUIRE(result.has_value());
         REQUIRE(called_method == 1);
         REQUIRE(called_global == 0);
 
         req.method = "POST";
-        handled = router.handle(req, res);
-        REQUIRE(handled);
+        result = router.handle(req);
+        REQUIRE(result.has_value());
         REQUIRE(called_method == 2);
         REQUIRE(called_global == 0);
 
         req.method = "Other method";
-        handled = router.handle(req, res);
-        REQUIRE(handled);
+        result = router.handle(req);
+        REQUIRE(result.has_value());
         REQUIRE(called_method == 2);
         REQUIRE(called_global == 1);
     }
@@ -160,10 +155,8 @@ TEST_CASE("No matching route") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/nope");
 
-        httc::Response res;
-
-        bool handled = router.handle(req, res);
-        REQUIRE(!handled);
+        auto result = router.handle(req);
+        REQUIRE(!result.has_value());
     }
 
     SECTION("Path but no method") {
@@ -174,10 +167,9 @@ TEST_CASE("No matching route") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/test");
 
-        httc::Response res;
-
-        bool handled = router.handle(req, res);
-        REQUIRE(!handled);
+        auto result = router.handle(req);
+        REQUIRE(result.has_value());
+        REQUIRE(result->status.code == 405); // Method Not Allowed
     }
 }
 
@@ -210,14 +202,13 @@ TEST_CASE("Complex routing 1") {
     };
 
     httc::Request req;
-    httc::Response res;
 
     SECTION("Exact match") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/abc/def");
 
-        bool handled = router.handle(req, res);
-        REQUIRE(handled);
+        auto result = router.handle(req);
+        REQUIRE(result.has_value());
         verify_called(0);
     }
 
@@ -225,8 +216,8 @@ TEST_CASE("Complex routing 1") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/abc/value");
 
-        bool handled = router.handle(req, res);
-        REQUIRE(handled);
+        auto result = router.handle(req);
+        REQUIRE(result.has_value());
         verify_called(1);
     }
 
@@ -234,8 +225,8 @@ TEST_CASE("Complex routing 1") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/abc/abc/abc");
 
-        bool handled = router.handle(req, res);
-        REQUIRE(handled);
+        auto result = router.handle(req);
+        REQUIRE(result.has_value());
         verify_called(3);
     }
 
@@ -243,8 +234,8 @@ TEST_CASE("Complex routing 1") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/abc/abc/very/deep/path");
 
-        bool handled = router.handle(req, res);
-        REQUIRE(handled);
+        auto result = router.handle(req);
+        REQUIRE(result.has_value());
         verify_called(3);
     }
 }
@@ -275,13 +266,12 @@ TEST_CASE("Complex routing 2") {
     };
 
     httc::Request req;
-    httc::Response res;
     SECTION("Exact match with method") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/a/b");
 
-        bool handled = router.handle(req, res);
-        REQUIRE(handled);
+        auto result = router.handle(req);
+        REQUIRE(result.has_value());
         verify_called(0);
     }
 
@@ -289,8 +279,8 @@ TEST_CASE("Complex routing 2") {
         req.method = "POST";
         req.uri = *httc::URI::parse("/a/value");
 
-        bool handled = router.handle(req, res);
-        REQUIRE(handled);
+        auto result = router.handle(req);
+        REQUIRE(result.has_value());
         verify_called(1);
     }
 
@@ -298,8 +288,8 @@ TEST_CASE("Complex routing 2") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/a/anything/here");
 
-        bool handled = router.handle(req, res);
-        REQUIRE(handled);
+        auto result = router.handle(req);
+        REQUIRE(result.has_value());
         verify_called(2);
     }
 }
@@ -317,8 +307,6 @@ TEST_CASE("Param and wildcard extraction") {
     req.method = "GET";
     req.uri = *httc::URI::parse("/files/12345/path/to/file.txt");
 
-    httc::Response res;
-
-    bool handled = router.handle(req, res);
-    REQUIRE(handled);
+    auto result = router.handle(req);
+    REQUIRE(result.has_value());
 }

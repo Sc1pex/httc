@@ -49,7 +49,7 @@ void Router::add_route(
     m_handlers.push_back(std::move(new_handler));
 }
 
-void run_handler(HandlerFn f, const URI& handler_path, Request& req, Response& res) {
+Response run_handler(HandlerFn f, const URI& handler_path, Request& req) {
     auto req_paths = req.uri.paths();
     auto handler_paths = handler_path.paths();
     for (size_t i = 0; i < handler_paths.size(); i++) {
@@ -68,10 +68,12 @@ void run_handler(HandlerFn f, const URI& handler_path, Request& req, Response& r
         }
     }
 
+    Response res(req.method == "HEAD");
     f(req, res);
+    return res;
 }
 
-bool Router::handle(Request& req, Response& res) const {
+std::optional<Response> Router::handle(Request& req) const {
     // [0] = full match
     // [1] = param match
     // [2] = wildcard match
@@ -92,11 +94,9 @@ bool Router::handle(Request& req, Response& res) const {
     for (const auto& m : matches) {
         if (m != nullptr) {
             if (m->method_handlers.contains(req.method)) {
-                run_handler(m->method_handlers.at(req.method), m->path, req, res);
-                return true;
+                return run_handler(m->method_handlers.at(req.method), m->path, req);
             } else if (m->global_handler.has_value()) {
-                run_handler(*m->global_handler, m->path, req, res);
-                return true;
+                return run_handler(*m->global_handler, m->path, req);
             } else {
                 method_not_allowed = true;
             }
@@ -104,11 +104,10 @@ bool Router::handle(Request& req, Response& res) const {
     }
 
     if (method_not_allowed) {
-        res.status = StatusCode::METHOD_NOT_ALLOWED;
-        return true;
+        return Response::from_status(StatusCode::METHOD_NOT_ALLOWED);
     }
 
-    return false;
+    return std::nullopt;
 }
 
 }

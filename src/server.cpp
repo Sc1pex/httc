@@ -28,12 +28,7 @@ void Server::handle_conn(uvw::tcp_handle& tcp) {
     auto req_parser = std::make_shared<RequestParser>();
 
     req_parser->set_on_request_complete([this, client](Request& req) {
-        Response res = {};
-
-        if (!m_router->handle(req, res)) {
-            res.status = StatusCode::NOT_FOUND;
-        }
-
+        auto res = m_router->handle(req).value_or(Response::from_status(StatusCode::NOT_FOUND));
         res.write(client);
     });
     req_parser->set_on_error([client](RequestParserError err) {

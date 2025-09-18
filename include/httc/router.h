@@ -34,7 +34,7 @@ public:
         return *this;
     }
 
-    bool handle(Request& req, Response& res) const;
+    std::optional<Response> handle(Request& req) const;
 
 private:
     struct HandlerPath {
