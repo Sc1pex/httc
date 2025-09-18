@@ -18,9 +18,9 @@ Response::Response(bool is_head_response) {
 }
 
 void Response::set_body(std::string_view body) {
+    headers.set("Content-Length", std::to_string(body.size()));
     if (!m_head) {
         m_body = std::string(body);
-        headers.set("Content-Length", std::to_string(m_body.size()));
     }
 }
 

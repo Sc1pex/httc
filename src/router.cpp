@@ -97,6 +97,9 @@ std::optional<Response> Router::handle(Request& req) const {
                 return run_handler(m->method_handlers.at(req.method), m->path, req);
             } else if (m->global_handler.has_value()) {
                 return run_handler(*m->global_handler, m->path, req);
+            } else if (req.method == "HEAD" && m->method_handlers.contains("GET")) {
+                req.method = "GET";
+                return run_handler(m->method_handlers.at("GET"), m->path, req);
             } else {
                 method_not_allowed = true;
             }
