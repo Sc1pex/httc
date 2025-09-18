@@ -91,7 +91,7 @@ std::optional<Response> Router::handle(Request& req) const {
     }
 
     bool method_not_allowed = false;
-    for (const auto& m : matches) {
+    for (const auto m : matches) {
         if (m != nullptr) {
             if (m->method_handlers.contains(req.method)) {
                 return run_handler(m->method_handlers.at(req.method), m->path, req);
@@ -100,6 +100,8 @@ std::optional<Response> Router::handle(Request& req) const {
             } else if (req.method == "HEAD" && m->method_handlers.contains("GET")) {
                 req.method = "GET";
                 return run_handler(m->method_handlers.at("GET"), m->path, req);
+            } else if (req.method == "OPTIONS") {
+                return default_options_handler(m);
             } else {
                 method_not_allowed = true;
             }
@@ -111,6 +113,29 @@ std::optional<Response> Router::handle(Request& req) const {
     }
 
     return std::nullopt;
+}
+
+Response Router::default_options_handler(const HandlerPath* handler) const {
+    Response res;
+    res.status = StatusCode::OK;
+
+    std::string allow;
+    // No need to check global_handler, because if it exists
+    // it would handle this request instead of calling this function.
+    for (const auto& [method, _] : handler->method_handlers) {
+        if (!allow.empty()) {
+            allow += ", ";
+        }
+        allow += method;
+    }
+    if (allow.empty()) {
+        allow = "OPTIONS, HEAD";
+    } else {
+        allow += ", OPTIONS, HEAD";
+    }
+
+    res.headers.set("Allow", allow);
+    return res;
 }
 
 }

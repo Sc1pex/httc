@@ -49,6 +49,7 @@ private:
     void add_route(
         HandlerFn f, std::string_view path, std::optional<std::vector<std::string>> methods
     );
+    Response default_options_handler(const HandlerPath* handler) const;
 
 private:
     std::vector<HandlerPath> m_handlers;
