@@ -9,14 +9,18 @@ namespace httc {
 
 class Response {
 public:
-    Response();
+    Response(bool is_head_response = false);
     static Response from_status(StatusCode status);
 
     void write(sp<uvw::tcp_handle> client);
 
+    void set_body(std::string_view body);
     StatusCode status;
     Headers headers;
-    std::string body;
+
+private:
+    std::string m_body;
+    bool m_head;
 };
 
 }
