@@ -11,8 +11,6 @@
 
 namespace httc {
 
-using HandlerFn = std::function<void(const Request& req, Response& res)>;
-
 template<typename T>
 concept IsCallableHandler = requires(T t, const Request& req, Response& res) { t(req, res); };
 
@@ -20,6 +18,9 @@ template<typename T>
 concept HasAllowedMethods = requires(T t) {
     { t.getAllowedMethods() } -> std::convertible_to<std::vector<std::string>>;
 } && IsCallableHandler<T>;
+
+using HandlerFn = std::function<void(const Request& req, Response& res)>;
+using MiddlewareFn = std::function<void(Request& req, Response& res, HandlerFn next)>;
 
 class Router {
 public:
@@ -33,6 +34,8 @@ public:
         add_route(handler, path, handler.getAllowedMethods());
         return *this;
     }
+
+    Router& wrap(MiddlewareFn middleware);
 
     std::optional<Response> handle(Request& req) const;
 
@@ -50,9 +53,11 @@ private:
         HandlerFn f, std::string_view path, std::optional<std::vector<std::string>> methods
     );
     Response default_options_handler(const HandlerPath* handler) const;
+    Response run_handler(HandlerFn f, const URI& handler_path, Request& req) const;
 
 private:
     std::vector<HandlerPath> m_handlers;
+    std::vector<MiddlewareFn> m_middleware;
 };
 
 // Helper to convert string literals to char arrays

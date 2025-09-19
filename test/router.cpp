@@ -310,3 +310,35 @@ TEST_CASE("Param and wildcard extraction") {
     auto result = router.handle(req);
     REQUIRE(result.has_value());
 }
+
+TEST_CASE("Middleware") {
+    httc::Router router;
+    std::vector<int> call_order;
+
+    router
+        .wrap([&](const httc::Request& req, httc::Response& res, auto next) {
+            call_order.push_back(1);
+            next(req, res);
+            call_order.push_back(5);
+        })
+        .wrap([&](const httc::Request& req, httc::Response& res, auto next) {
+            call_order.push_back(2);
+            next(req, res);
+            call_order.push_back(4);
+        })
+        .route("/test", [&](const httc::Request&, httc::Response&) {
+            call_order.push_back(3);
+        });
+
+    httc::Request req;
+    req.method = "GET";
+    req.uri = *httc::URI::parse("/test");
+
+    auto result = router.handle(req);
+    REQUIRE(result.has_value());
+
+    REQUIRE(call_order.size() == 5);
+    for (int i = 0; i < 5; i++) {
+        CHECK(call_order[i] == i + 1);
+    }
+}

@@ -49,7 +49,12 @@ void Router::add_route(
     m_handlers.push_back(std::move(new_handler));
 }
 
-Response run_handler(HandlerFn f, const URI& handler_path, Request& req) {
+Router& Router::wrap(MiddlewareFn middleware) {
+    m_middleware.push_back(middleware);
+    return *this;
+}
+
+Response Router::run_handler(HandlerFn f, const URI& handler_path, Request& req) const {
     auto req_paths = req.uri.paths();
     auto handler_paths = handler_path.paths();
     for (size_t i = 0; i < handler_paths.size(); i++) {
@@ -69,7 +74,21 @@ Response run_handler(HandlerFn f, const URI& handler_path, Request& req) {
     }
 
     Response res(req.method == "HEAD");
-    f(req, res);
+
+    size_t middleware_idx = 0;
+    auto run_middleware = [&](this const auto& self) -> void {
+        if (middleware_idx < m_middleware.size()) {
+            auto& mw = m_middleware[middleware_idx];
+            middleware_idx++;
+            mw(req, res, [&](const Request&, Response&) {
+                self();
+            });
+        } else {
+            f(req, res);
+        }
+    };
+    run_middleware();
+
     return res;
 }
 
