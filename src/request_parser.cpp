@@ -1,6 +1,7 @@
 #include "httc/request_parser.h"
 #include <expected>
 #include <functional>
+#include "httc/percent_encoding.h"
 
 namespace httc {
 
@@ -101,7 +102,11 @@ RequestParser::ParseResult RequestParser::parse_request_line() {
     }
 
     auto uri_str = request_line.substr(uri_start, uri_end - uri_start);
-    auto uri = URI::parse(uri_str);
+    auto decoded_uri_str = percent_decode(uri_str);
+    if (!decoded_uri_str.has_value()) {
+        return std::unexpected(RequestParserError::INVALID_REQUEST_LINE);
+    }
+    auto uri = URI::parse(*decoded_uri_str);
     if (!uri.has_value()) {
         return std::unexpected(RequestParserError::INVALID_REQUEST_LINE);
     }
