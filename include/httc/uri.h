@@ -25,6 +25,7 @@ public:
 
     const std::vector<std::string>& paths() const;
     const std::vector<std::pair<std::string, std::string>>& query() const;
+    std::optional<std::string_view> query_param(std::string_view param) const;
 
     std::string to_string() const;
     std::string path() const;

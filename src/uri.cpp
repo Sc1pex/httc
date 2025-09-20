@@ -1,5 +1,6 @@
 #include "httc/uri.h"
 #include <optional>
+#include <print>
 #include <ranges>
 
 namespace httc {
@@ -72,6 +73,15 @@ const std::vector<std::string>& URI::paths() const {
 
 const std::vector<std::pair<std::string, std::string>>& URI::query() const {
     return m_query;
+}
+
+std::optional<std::string_view> URI::query_param(std::string_view param) const {
+    for (const auto& [key, value] : m_query) {
+        if (key == param) {
+            return value;
+        }
+    }
+    return std::nullopt;
 }
 
 URIMatch URI::match(const URI& other) const {

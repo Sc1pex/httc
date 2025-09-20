@@ -21,6 +21,22 @@ TEST_CASE("Parse request line") {
         REQUIRE(callback_called);
     }
 
+    SECTION("Valid request line with url encoding") {
+        bool callback_called = false;
+        parser.set_on_request_complete([&callback_called](const httc::Request& req) {
+            callback_called = true;
+            REQUIRE(req.method == "GET");
+            REQUIRE(req.uri.to_string() == "/abc def");
+        });
+        parser.set_on_error([](httc::RequestParserError err) {
+            FAIL("Error callback should not be called");
+        });
+
+        std::string_view message = "GET /abc%20def HTTP/1.1\r\n\r\n";
+        parser.feed_data(message.data(), message.size());
+        REQUIRE(callback_called);
+    }
+
     SECTION("Invalid HTTP version") {
         bool error_called = false;
         parser.set_on_request_complete([](const httc::Request& req) {
@@ -110,6 +126,52 @@ TEST_CASE("Parse request line") {
         std::string_view message = "GET /index.html HTTP/1.1 EXTRA\r\n\r\n";
         parser.feed_data(message.data(), message.size());
         REQUIRE(error_called);
+    }
+}
+
+TEST_CASE("Parse query parameters") {
+    httc::RequestParser parser;
+
+    SECTION("Valid query parameters") {
+        bool callback_called = false;
+        parser.set_on_request_complete([&callback_called](const httc::Request& req) {
+            callback_called = true;
+            REQUIRE(req.method == "GET");
+            auto q = req.uri.query_param("q");
+            REQUIRE(q.has_value());
+            REQUIRE(q.value() == "test");
+            auto page = req.uri.query_param("page");
+            REQUIRE(page.has_value());
+            REQUIRE(page.value() == "1");
+        });
+        parser.set_on_error([](httc::RequestParserError err) {
+            FAIL("Error callback should not be called");
+        });
+
+        std::string_view message = "GET /search?q=test&page=1 HTTP/1.1\r\n\r\n";
+        parser.feed_data(message.data(), message.size());
+        REQUIRE(callback_called);
+    }
+
+    SECTION("Empty query parameter value") {
+        bool callback_called = false;
+        parser.set_on_request_complete([&callback_called](const httc::Request& req) {
+            callback_called = true;
+            REQUIRE(req.method == "GET");
+            auto q = req.uri.query_param("q");
+            REQUIRE(q.has_value());
+            REQUIRE(q.value() == "");
+            auto p = req.uri.query_param("p");
+            REQUIRE(p.has_value());
+            REQUIRE(p.value() == "");
+        });
+        parser.set_on_error([](httc::RequestParserError err) {
+            FAIL("Error callback should not be called");
+        });
+
+        std::string_view message = "GET /search?q=&p= HTTP/1.1\r\n\r\n";
+        parser.feed_data(message.data(), message.size());
+        REQUIRE(callback_called);
     }
 }
 
