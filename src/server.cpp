@@ -5,30 +5,14 @@
 
 namespace httc {
 
-Server::Server(sp<uvw::loop> loop, Router router) : m_loop(loop) {
-    m_router = std::make_shared<Router>(router);
-}
-
-void Server::bind_and_listen(const std::string& addr, unsigned int port) {
-    auto tcp = m_loop->resource<uvw::tcp_handle>();
-
-    tcp->on<uvw::listen_event>([this](const uvw::listen_event&, uvw::tcp_handle& tcp) {
-        this->handle_conn(tcp);
-    });
-
-    tcp->bind(addr, port);
-    tcp->listen();
-    m_loop->run();
-}
-
-void Server::handle_conn(uvw::tcp_handle& tcp) {
-    auto client = m_loop->resource<uvw::tcp_handle>();
+void handle_conn(uvw::tcp_handle& tcp, sp<Router> router) {
+    auto client = tcp.parent().resource<uvw::tcp_handle>();
     tcp.accept(*client);
 
     auto req_parser = std::make_shared<RequestParser>();
 
-    req_parser->set_on_request_complete([this, client](Request& req) {
-        auto res = m_router->handle(req).value_or(Response::from_status(StatusCode::NOT_FOUND));
+    req_parser->set_on_request_complete([router, client](Request& req) {
+        auto res = router->handle(req).value_or(Response::from_status(StatusCode::NOT_FOUND));
         res.write(client);
     });
     req_parser->set_on_error([client](RequestParserError err) {
@@ -44,6 +28,20 @@ void Server::handle_conn(uvw::tcp_handle& tcp) {
     });
 
     client->read();
+}
+
+void bind_and_listen(
+    const std::string& addr, unsigned int port, sp<Router> router, sp<uvw::loop> loop
+) {
+    auto tcp = loop->resource<uvw::tcp_handle>();
+
+    tcp->on<uvw::listen_event>([router](const uvw::listen_event&, uvw::tcp_handle& tcp) {
+        handle_conn(tcp, router);
+    });
+
+    tcp->bind(addr, port);
+    tcp->listen();
+    loop->run();
 }
 
 }

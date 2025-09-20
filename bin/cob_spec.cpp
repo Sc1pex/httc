@@ -21,15 +21,13 @@ struct CliArgs {
 };
 
 int main(int argc, char** argv) {
-    auto args = std::make_shared<CliArgs>(argc, argv);
+    CliArgs args(argc, argv);
 
-    httc::Router router;
-    router.route("/*", httc::utils::FileServer(args->file_dir, true));
+    auto router = std::make_shared<httc::Router>();
+    router->route("/*", httc::utils::FileServer(args.file_dir, true));
 
-    auto loop = uvw::loop::get_default();
-    httc::Server server(loop, std::move(router));
-    std::println("Listening on port {}", args->port);
-    server.bind_and_listen("0.0.0.0", args->port);
+    std::println("Listening on port {}", args.port);
+    httc::bind_and_listen("0.0.0.0", args.port, router);
 
     return 0;
 }
