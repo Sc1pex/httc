@@ -1,7 +1,7 @@
 #pragma once
 
+#include <asio.hpp>
 #include <expected>
-#include <uvw.hpp>
 #include "httc/request.h"
 #include "httc/status.h"
 

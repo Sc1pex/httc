@@ -1,6 +1,7 @@
 #include "httc/request_parser.h"
 #include <expected>
 #include <functional>
+#include <string_view>
 #include "httc/percent_encoding.h"
 
 namespace httc {

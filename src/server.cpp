@@ -1,47 +1,67 @@
 #include "httc/server.h"
+#include <asio.hpp>
+#include <memory>
 #include "httc/request_parser.h"
 #include "httc/response.h"
 #include "httc/status.h"
 
 namespace httc {
 
-void handle_conn(uvw::tcp_handle& tcp, sp<Router> router) {
-    auto client = tcp.parent().resource<uvw::tcp_handle>();
-    tcp.accept(*client);
+using asio::ip::tcp;
 
+void handle_conn(sp<tcp::socket> socket, sp<Router> router) {
     auto req_parser = std::make_shared<RequestParser>();
 
-    req_parser->set_on_request_complete([router, client](Request& req) {
+    req_parser->set_on_request_complete([router, socket](Request& req) {
         auto res = router->handle(req).value_or(Response::from_status(StatusCode::NOT_FOUND));
-        res.write(client);
+        res.write(socket);
     });
-    req_parser->set_on_error([client](RequestParserError err) {
+    req_parser->set_on_error([socket](RequestParserError err) {
         auto resp = Response::from_status(parse_error_to_status_code(err));
-        client->close();
+        socket->close();
     });
 
-    client->on<uvw::data_event>([req_parser](const uvw::data_event& ev, uvw::tcp_handle&) {
-        req_parser->feed_data(ev.data.get(), ev.length);
-    });
-    client->on<uvw::end_event>([](const uvw::end_event&, uvw::tcp_handle& c) {
-        c.close();
-    });
+    char* read_buf = (char*) malloc(128);
+    auto start_read = [socket, req_parser, read_buf](this const auto& self) -> void {
+        socket->async_read_some(
+            asio::buffer(read_buf, 128),
+            [self, read_buf,
+             req_parser](const asio::error_code& ec, std::size_t bytes_transferred) {
+                if (ec && ec != asio::error::eof) {
+                    return;
+                }
 
-    client->read();
+                req_parser->feed_data(read_buf, bytes_transferred);
+                if (ec != asio::error::eof) {
+                    self();
+                } else {
+                    free(read_buf);
+                }
+            }
+        );
+    };
+
+    start_read();
 }
 
 void bind_and_listen(
-    const std::string& addr, unsigned int port, sp<Router> router, sp<uvw::loop> loop
+    const std::string& addr, unsigned int port, sp<Router> router, asio::io_context io_ctx
 ) {
-    auto tcp = loop->resource<uvw::tcp_handle>();
+    tcp::endpoint endpoint(asio::ip::make_address(addr), port);
+    tcp::acceptor acceptor(io_ctx, endpoint);
 
-    tcp->on<uvw::listen_event>([router](const uvw::listen_event&, uvw::tcp_handle& tcp) {
-        handle_conn(tcp, router);
-    });
+    auto accept_conn = [&](this const auto& self) -> void {
+        auto sock = std::make_shared<tcp::socket>(io_ctx);
+        acceptor.async_accept(*sock, [&, sock](const asio::error_code& ec) {
+            if (!ec) {
+                handle_conn(sock, router);
+            }
+            self();
+        });
+    };
 
-    tcp->bind(addr, port);
-    tcp->listen();
-    loop->run();
+    accept_conn();
+    io_ctx.run();
 }
 
 }

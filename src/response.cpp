@@ -1,14 +1,17 @@
 #include "httc/response.h"
+#include <asio.hpp>
+#include <asio/error_code.hpp>
 #include "httc/status.h"
 
 namespace httc {
 
+using asio::ip::tcp;
+
 template<typename... Args>
-void write_fmt(
-    std::shared_ptr<uvw::tcp_handle> client, std::format_string<Args...> fmt, Args&&... args
-) {
+void write_fmt(sp<tcp::socket> client, std::format_string<Args...> fmt, Args&&... args) {
     auto s = std::format(fmt, std::forward<Args>(args)...);
-    client->write(s.data(), s.size());
+    asio::error_code ec;
+    asio::write(*client, asio::buffer(s), ec);
 }
 
 Response::Response(bool is_head_response) {
@@ -24,14 +27,15 @@ void Response::set_body(std::string_view body) {
     }
 }
 
-void Response::write(sp<uvw::tcp_handle> client) {
+void Response::write(sp<tcp::socket> client) {
     write_fmt(client, "HTTP/1.1 {}\r\n", status.code);
     for (const auto& [key, value] : headers) {
         write_fmt(client, "{}: {}\r\n", key, value);
     }
     write_fmt(client, "\r\n");
     if (!m_body.empty()) {
-        client->write(m_body.data(), m_body.size());
+        asio::error_code ec;
+        asio::write(*client, asio::buffer(m_body), ec);
     }
 }
 
