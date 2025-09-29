@@ -1,9 +1,6 @@
 {
   "dependencies": [
-    {
-      "name": "uvw",
-      "version>=": "3.2.0"
-    },
-    "catch2"
+    "catch2",
+    "asio"
   ]
 }

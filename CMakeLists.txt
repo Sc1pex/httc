@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-find_package(uvw CONFIG REQUIRED)
+find_package(asio CONFIG REQUIRED)
 find_package(Catch2 CONFIG REQUIRED)
 
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native")
@@ -28,7 +28,7 @@ target_sources(httc
         src/utils/file_server.cpp
         src/utils/mime.cpp
 )
-target_link_libraries(httc PUBLIC uvw::uvw)
+target_link_libraries(httc PUBLIC asio::asio)
 
 add_subdirectory(bin)
 add_subdirectory(test)
