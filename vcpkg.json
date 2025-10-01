@@ -1,6 +1,16 @@
 {
-  "dependencies": [
-    "catch2",
-    "asio"
-  ]
+  "name": "httc",
+  "version": "0.1.0",
+  "description": "HTTP client/server library",
+  "homepage": "https://github.com/Sc1pex/httc",
+  "dependencies": ["asio"],
+  "features": {
+    "tests": {
+      "description": "Build tests",
+      "dependencies": ["catch2"]
+    },
+    "examples": {
+      "description": "Build examples"
+    }
+  }
 }
