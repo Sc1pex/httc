@@ -1,6 +1,10 @@
+if(NOT HTTC_BUILD_EXAMPLES)
+    return()
+endif()
+
 add_executable(cob_spec)
 target_sources(cob_spec
-    PUBLIC
+    PRIVATE
         cob_spec.cpp
 )
-target_link_libraries(cob_spec PUBLIC httc)
+target_link_libraries(cob_spec PRIVATE httc)

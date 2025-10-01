@@ -1,0 +1,8 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(asio CONFIG REQUIRED)
+
+include("${CMAKE_CURRENT_LIST_DIR}/httcTargets.cmake")
+
+check_required_components(httc)
