@@ -21,21 +21,19 @@ void handle_conn(sp<tcp::socket> socket, sp<Router> router) {
         socket->close();
     });
 
-    char* read_buf = (char*) malloc(128);
+    auto read_buf = std::make_shared<std::array<char, 128>>();
     auto start_read = [socket, req_parser, read_buf](this const auto& self) -> void {
         socket->async_read_some(
-            asio::buffer(read_buf, 128),
+            asio::buffer(read_buf->data(), read_buf->size()),
             [self, read_buf,
              req_parser](const asio::error_code& ec, std::size_t bytes_transferred) {
                 if (ec && ec != asio::error::eof) {
                     return;
                 }
 
-                req_parser->feed_data(read_buf, bytes_transferred);
+                req_parser->feed_data(read_buf->data(), bytes_transferred);
                 if (ec != asio::error::eof) {
                     self();
-                } else {
-                    free(read_buf);
                 }
             }
         );
