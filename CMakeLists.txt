@@ -15,8 +15,8 @@ endif()
 
 find_package(asio CONFIG REQUIRED)
 
-option(HTTC_BUILD_TESTS "Build tests" OFF)
-option(HTTC_BUILD_EXAMPLES "Build examples" OFF)
+option(HTTC_BUILD_TESTS "Build tests")
+option(HTTC_BUILD_EXAMPLES "Build examples")
 
 if(HTTC_BUILD_TESTS)
     find_package(Catch2 CONFIG REQUIRED)
