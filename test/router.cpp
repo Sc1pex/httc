@@ -1,10 +1,12 @@
 #include "httc/router.h"
+#include <asio.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 namespace methods = httc::methods;
 
 TEST_CASE("Basic routing") {
     httc::Router router;
+    asio::io_context io_context;
 
     SECTION("Single path no method") {
         int called = 0;
@@ -16,11 +18,16 @@ TEST_CASE("Basic routing") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/test");
 
-        auto result = router.handle(req);
+        auto future = asio::co_spawn(io_context, router.handle(req), asio::use_future);
+        io_context.run();
+        auto result = future.get();
         REQUIRE(result.has_value());
 
+        io_context.restart();
         req.method = "Other method";
-        result = router.handle(req);
+        future = asio::co_spawn(io_context, router.handle(req), asio::use_future);
+        io_context.run();
+        result = future.get();
         REQUIRE(result.has_value());
 
         REQUIRE(called == 2);
@@ -38,15 +45,23 @@ TEST_CASE("Basic routing") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/test");
 
-        auto result = router.handle(req);
+        auto future = asio::co_spawn(io_context, router.handle(req), asio::use_future);
+        io_context.run();
+        auto result = future.get();
         REQUIRE(result.has_value());
 
+        io_context.restart();
         req.method = "POST";
-        result = router.handle(req);
+        future = asio::co_spawn(io_context, router.handle(req), asio::use_future);
+        io_context.run();
+        result = future.get();
         REQUIRE(result.has_value());
 
+        io_context.restart();
         req.method = "Other method";
-        result = router.handle(req);
+        future = asio::co_spawn(io_context, router.handle(req), asio::use_future);
+        io_context.run();
+        result = future.get();
         REQUIRE(result.has_value());
         REQUIRE(result->status.code == 405); // Method Not Allowed
 
@@ -69,19 +84,27 @@ TEST_CASE("Basic routing") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/test");
 
-        auto result = router.handle(req);
+        auto future = asio::co_spawn(io_context, router.handle(req), asio::use_future);
+        io_context.run();
+        auto result = future.get();
         REQUIRE(result.has_value());
         REQUIRE(called_method == 1);
         REQUIRE(called_global == 0);
 
+        io_context.restart();
         req.method = "POST";
-        result = router.handle(req);
+        future = asio::co_spawn(io_context, router.handle(req), asio::use_future);
+        io_context.run();
+        result = future.get();
         REQUIRE(result.has_value());
         REQUIRE(called_method == 2);
         REQUIRE(called_global == 0);
 
+        io_context.restart();
         req.method = "Other method";
-        result = router.handle(req);
+        future = asio::co_spawn(io_context, router.handle(req), asio::use_future);
+        io_context.run();
+        result = future.get();
         REQUIRE(result.has_value());
         REQUIRE(called_method == 2);
         REQUIRE(called_global == 1);
@@ -146,6 +169,7 @@ TEST_CASE("Invalid URIs") {
 
 TEST_CASE("No matching route") {
     httc::Router router;
+    asio::io_context io_context;
 
     SECTION("No path") {
         router.route("/test", [](const httc::Request&, httc::Response&) {
@@ -155,7 +179,9 @@ TEST_CASE("No matching route") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/nope");
 
-        auto result = router.handle(req);
+        auto future = asio::co_spawn(io_context, router.handle(req), asio::use_future);
+        io_context.run();
+        auto result = future.get();
         REQUIRE(!result.has_value());
     }
 
@@ -167,7 +193,9 @@ TEST_CASE("No matching route") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/test");
 
-        auto result = router.handle(req);
+        auto future = asio::co_spawn(io_context, router.handle(req), asio::use_future);
+        io_context.run();
+        auto result = future.get();
         REQUIRE(result.has_value());
         REQUIRE(result->status.code == 405); // Method Not Allowed
     }
@@ -175,6 +203,7 @@ TEST_CASE("No matching route") {
 
 TEST_CASE("Complex routing 1") {
     httc::Router router;
+    asio::io_context io_context;
     std::unordered_map<int, int> call_count;
 
     router.route("/abc/def", [&](const httc::Request&, httc::Response&) {
@@ -207,7 +236,9 @@ TEST_CASE("Complex routing 1") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/abc/def");
 
-        auto result = router.handle(req);
+        auto future = asio::co_spawn(io_context, router.handle(req), asio::use_future);
+        io_context.run();
+        auto result = future.get();
         REQUIRE(result.has_value());
         verify_called(0);
     }
@@ -216,7 +247,9 @@ TEST_CASE("Complex routing 1") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/abc/value");
 
-        auto result = router.handle(req);
+        auto future = asio::co_spawn(io_context, router.handle(req), asio::use_future);
+        io_context.run();
+        auto result = future.get();
         REQUIRE(result.has_value());
         verify_called(1);
     }
@@ -225,7 +258,9 @@ TEST_CASE("Complex routing 1") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/abc/abc/abc");
 
-        auto result = router.handle(req);
+        auto future = asio::co_spawn(io_context, router.handle(req), asio::use_future);
+        io_context.run();
+        auto result = future.get();
         REQUIRE(result.has_value());
         verify_called(3);
     }
@@ -234,7 +269,9 @@ TEST_CASE("Complex routing 1") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/abc/abc/very/deep/path");
 
-        auto result = router.handle(req);
+        auto future = asio::co_spawn(io_context, router.handle(req), asio::use_future);
+        io_context.run();
+        auto result = future.get();
         REQUIRE(result.has_value());
         verify_called(3);
     }
@@ -242,6 +279,7 @@ TEST_CASE("Complex routing 1") {
 
 TEST_CASE("Complex routing 2") {
     httc::Router router;
+    asio::io_context io_context;
     std::unordered_map<int, int> call_count;
 
     router.route("/a/b", methods::get([&](const httc::Request&, httc::Response&) {
@@ -270,7 +308,9 @@ TEST_CASE("Complex routing 2") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/a/b");
 
-        auto result = router.handle(req);
+        auto future = asio::co_spawn(io_context, router.handle(req), asio::use_future);
+        io_context.run();
+        auto result = future.get();
         REQUIRE(result.has_value());
         verify_called(0);
     }
@@ -279,7 +319,9 @@ TEST_CASE("Complex routing 2") {
         req.method = "POST";
         req.uri = *httc::URI::parse("/a/value");
 
-        auto result = router.handle(req);
+        auto future = asio::co_spawn(io_context, router.handle(req), asio::use_future);
+        io_context.run();
+        auto result = future.get();
         REQUIRE(result.has_value());
         verify_called(1);
     }
@@ -288,7 +330,9 @@ TEST_CASE("Complex routing 2") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/a/anything/here");
 
-        auto result = router.handle(req);
+        auto future = asio::co_spawn(io_context, router.handle(req), asio::use_future);
+        io_context.run();
+        auto result = future.get();
         REQUIRE(result.has_value());
         verify_called(2);
     }
@@ -296,6 +340,7 @@ TEST_CASE("Complex routing 2") {
 
 TEST_CASE("Param and wildcard extraction") {
     httc::Router router;
+    asio::io_context io_context;
 
     router.route("/files/:fileId/*", [](const httc::Request& req, httc::Response&) {
         REQUIRE(req.path_params.contains("fileId"));
@@ -307,12 +352,15 @@ TEST_CASE("Param and wildcard extraction") {
     req.method = "GET";
     req.uri = *httc::URI::parse("/files/12345/path/to/file.txt");
 
-    auto result = router.handle(req);
+    auto future = asio::co_spawn(io_context, router.handle(req), asio::use_future);
+    io_context.run();
+    auto result = future.get();
     REQUIRE(result.has_value());
 }
 
 TEST_CASE("Middleware") {
     httc::Router router;
+    asio::io_context io_context;
     std::vector<int> call_order;
 
     router
@@ -334,7 +382,9 @@ TEST_CASE("Middleware") {
     req.method = "GET";
     req.uri = *httc::URI::parse("/test");
 
-    auto result = router.handle(req);
+    auto future = asio::co_spawn(io_context, router.handle(req), asio::use_future);
+    io_context.run();
+    auto result = future.get();
     REQUIRE(result.has_value());
 
     REQUIRE(call_order.size() == 5);

@@ -92,7 +92,7 @@ Response Router::run_handler(HandlerFn f, const URI& handler_path, Request& req)
     return res;
 }
 
-std::optional<Response> Router::handle(Request& req) const {
+asio::awaitable<std::optional<Response>> Router::handle(Request& req) const {
     // [0] = full match
     // [1] = param match
     // [2] = wildcard match
@@ -113,14 +113,14 @@ std::optional<Response> Router::handle(Request& req) const {
     for (const auto m : matches) {
         if (m != nullptr) {
             if (m->method_handlers.contains(req.method)) {
-                return run_handler(m->method_handlers.at(req.method), m->path, req);
+                co_return run_handler(m->method_handlers.at(req.method), m->path, req);
             } else if (m->global_handler.has_value()) {
-                return run_handler(*m->global_handler, m->path, req);
+                co_return run_handler(*m->global_handler, m->path, req);
             } else if (req.method == "HEAD" && m->method_handlers.contains("GET")) {
                 req.method = "GET";
-                return run_handler(m->method_handlers.at("GET"), m->path, req);
+                co_return run_handler(m->method_handlers.at("GET"), m->path, req);
             } else if (req.method == "OPTIONS") {
-                return default_options_handler(m);
+                co_return default_options_handler(m);
             } else {
                 method_not_allowed = true;
             }
@@ -128,10 +128,10 @@ std::optional<Response> Router::handle(Request& req) const {
     }
 
     if (method_not_allowed) {
-        return Response::from_status(StatusCode::METHOD_NOT_ALLOWED);
+        co_return Response::from_status(StatusCode::METHOD_NOT_ALLOWED);
     }
 
-    return std::nullopt;
+    co_return std::nullopt;
 }
 
 Response Router::default_options_handler(const HandlerPath* handler) const {

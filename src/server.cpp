@@ -11,18 +11,7 @@ using asio::use_awaitable;
 using asio::ip::tcp;
 
 awaitable<void> handle_conn(tcp::socket socket, sp<Router> router) {
-    // auto req_parser = std::make_shared<RequestParser>();
     RequestParser req_parser;
-
-    req_parser.set_on_request_complete([router, &socket](Request& req) {
-        auto res = router->handle(req).value_or(Response::from_status(StatusCode::NOT_FOUND));
-        res.write(socket);
-    });
-    req_parser.set_on_error([&socket](RequestParserError err) {
-        auto res = Response::from_status(parse_error_to_status_code(err));
-        res.write(socket);
-        socket.close();
-    });
 
     auto buf = std::array<char, 1024>();
 
@@ -36,7 +25,27 @@ awaitable<void> handle_conn(tcp::socket socket, sp<Router> router) {
         if (ec && ec != asio::error::eof) {
             break;
         }
-        req_parser.feed_data(buf.data(), n);
+
+        auto req_opt = req_parser.feed_data(buf.data(), n);
+        if (!req_opt.has_value()) {
+            // Incomplete request, wait for more data
+            continue;
+        }
+
+        auto req_result = *req_opt;
+        // If there was a parsing error, respond with the appropriate status code
+        if (!req_result.has_value()) {
+            auto res = Response::from_status(parse_error_to_status_code(req_result.error()));
+            res.write(socket);
+            socket.close();
+            co_return;
+        }
+
+        // Successfully parsed request, handle it
+        auto req = req_result.value();
+        auto res_opt = co_await router->handle(req);
+        auto res = res_opt.value_or(Response::from_status(StatusCode::NOT_FOUND));
+        res.write(socket);
     }
 }
 

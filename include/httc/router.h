@@ -1,5 +1,6 @@
 #pragma once
 
+#include <asio/awaitable.hpp>
 #include <concepts>
 #include <functional>
 #include <stdexcept>
@@ -12,7 +13,16 @@
 namespace httc {
 
 template<typename T>
-concept IsCallableHandler = requires(T t, const Request& req, Response& res) { t(req, res); };
+concept IsSyncHandler = requires(T t, const Request& req, Response& res) {
+    { t(req, res) } -> std::same_as<void>;
+};
+template<typename T>
+concept IsAsyncHandler = requires(T t, const Request& req, Response& res) {
+    { t(req, res) } -> std::same_as<asio::awaitable<void>>;
+};
+
+template<typename T>
+concept IsCallableHandler = IsSyncHandler<T> || IsAsyncHandler<T>;
 
 template<typename T>
 concept HasAllowedMethods = requires(T t) {
@@ -37,7 +47,7 @@ public:
 
     Router& wrap(MiddlewareFn middleware);
 
-    std::optional<Response> handle(Request& req) const;
+    asio::awaitable<std::optional<Response>> handle(Request& req) const;
 
 private:
     struct HandlerPath {
