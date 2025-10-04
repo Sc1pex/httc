@@ -8,10 +8,10 @@ namespace httc {
 using asio::ip::tcp;
 
 template<typename... Args>
-void write_fmt(sp<tcp::socket> client, std::format_string<Args...> fmt, Args&&... args) {
+void write_fmt(tcp::socket& client, std::format_string<Args...> fmt, Args&&... args) {
     auto s = std::format(fmt, std::forward<Args>(args)...);
     asio::error_code ec;
-    asio::write(*client, asio::buffer(s), ec);
+    asio::write(client, asio::buffer(s), ec);
 }
 
 Response::Response(bool is_head_response) {
@@ -27,7 +27,7 @@ void Response::set_body(std::string_view body) {
     }
 }
 
-void Response::write(sp<tcp::socket> client) {
+void Response::write(tcp::socket& client) {
     write_fmt(client, "HTTP/1.1 {}\r\n", status.code);
     for (const auto& [key, value] : headers) {
         write_fmt(client, "{}: {}\r\n", key, value);
@@ -35,7 +35,7 @@ void Response::write(sp<tcp::socket> client) {
     write_fmt(client, "\r\n");
     if (!m_body.empty()) {
         asio::error_code ec;
-        asio::write(*client, asio::buffer(m_body), ec);
+        asio::write(client, asio::buffer(m_body), ec);
     }
 }
 

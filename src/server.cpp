@@ -1,45 +1,43 @@
 #include "httc/server.h"
 #include <asio.hpp>
-#include <memory>
 #include "httc/request_parser.h"
 #include "httc/response.h"
 #include "httc/status.h"
 
 namespace httc {
 
+using asio::awaitable;
+using asio::use_awaitable;
 using asio::ip::tcp;
 
-void handle_conn(sp<tcp::socket> socket, sp<Router> router) {
-    auto req_parser = std::make_shared<RequestParser>();
+awaitable<void> handle_conn(tcp::socket socket, sp<Router> router) {
+    // auto req_parser = std::make_shared<RequestParser>();
+    RequestParser req_parser;
 
-    req_parser->set_on_request_complete([router, socket](Request& req) {
+    req_parser.set_on_request_complete([router, &socket](Request& req) {
         auto res = router->handle(req).value_or(Response::from_status(StatusCode::NOT_FOUND));
         res.write(socket);
     });
-    req_parser->set_on_error([socket](RequestParserError err) {
-        auto resp = Response::from_status(parse_error_to_status_code(err));
-        socket->close();
+    req_parser.set_on_error([&socket](RequestParserError err) {
+        auto res = Response::from_status(parse_error_to_status_code(err));
+        res.write(socket);
+        socket.close();
     });
 
-    auto read_buf = std::make_shared<std::array<char, 128>>();
-    auto start_read = [socket, req_parser, read_buf](this const auto& self) -> void {
-        socket->async_read_some(
-            asio::buffer(read_buf->data(), read_buf->size()),
-            [self, read_buf,
-             req_parser](const asio::error_code& ec, std::size_t bytes_transferred) {
-                if (ec && ec != asio::error::eof) {
-                    return;
-                }
+    auto buf = std::array<char, 1024>();
 
-                req_parser->feed_data(read_buf->data(), bytes_transferred);
-                if (ec != asio::error::eof) {
-                    self();
-                }
-            }
+    for (;;) {
+        asio::error_code ec;
+        std::size_t n = co_await socket.async_read_some(
+            asio::buffer(buf), asio::redirect_error(use_awaitable, ec)
         );
-    };
 
-    start_read();
+        // If eof is reached, parse the remaining data
+        if (ec && ec != asio::error::eof) {
+            break;
+        }
+        req_parser.feed_data(buf.data(), n);
+    }
 }
 
 void bind_and_listen(
@@ -48,17 +46,18 @@ void bind_and_listen(
     tcp::endpoint endpoint(asio::ip::make_address(addr), port);
     tcp::acceptor acceptor(io_ctx, endpoint);
 
-    auto accept_conn = [&](this const auto& self) -> void {
-        auto sock = std::make_shared<tcp::socket>(io_ctx);
-        acceptor.async_accept(*sock, [&, sock](const asio::error_code& ec) {
-            if (!ec) {
-                handle_conn(sock, router);
+    auto listen = [&acceptor, router]() -> awaitable<void> {
+        for (;;) {
+            try {
+                auto socket = co_await acceptor.async_accept(use_awaitable);
+                auto ex = co_await asio::this_coro::executor;
+                asio::co_spawn(ex, handle_conn(std::move(socket), router), asio::detached);
+            } catch (std::exception& e) {
             }
-            self();
-        });
+        }
     };
 
-    accept_conn();
+    asio::co_spawn(io_ctx, listen(), asio::detached);
     io_ctx.run();
 }
 
