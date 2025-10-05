@@ -3,6 +3,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 namespace methods = httc::methods;
+using asio::awaitable;
 
 TEST_CASE("Basic routing") {
     httc::Router router;
@@ -49,6 +50,7 @@ TEST_CASE("Basic routing") {
         io_context.run();
         auto result = future.get();
         REQUIRE(result.has_value());
+        REQUIRE(result->status.code == 200);
 
         io_context.restart();
         req.method = "POST";
@@ -56,6 +58,7 @@ TEST_CASE("Basic routing") {
         io_context.run();
         result = future.get();
         REQUIRE(result.has_value());
+        REQUIRE(result->status.code == 200);
 
         io_context.restart();
         req.method = "Other method";
@@ -364,14 +367,14 @@ TEST_CASE("Middleware") {
     std::vector<int> call_order;
 
     router
-        .wrap([&](const httc::Request& req, httc::Response& res, auto next) {
+        .wrap([&](const httc::Request& req, httc::Response& res, auto next) -> awaitable<void> {
             call_order.push_back(1);
-            next(req, res);
+            co_await next(req, res);
             call_order.push_back(5);
         })
-        .wrap([&](const httc::Request& req, httc::Response& res, auto next) {
+        .wrap([&](const httc::Request& req, httc::Response& res, auto next) -> awaitable<void> {
             call_order.push_back(2);
-            next(req, res);
+            co_await next(req, res);
             call_order.push_back(4);
         })
         .route("/test", [&](const httc::Request&, httc::Response&) {

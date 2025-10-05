@@ -5,6 +5,7 @@
 #include <functional>
 #include <stdexcept>
 #include <string_view>
+#include <utility>
 #include <vector>
 #include "httc/request.h"
 #include "httc/response.h"
@@ -29,19 +30,35 @@ concept HasAllowedMethods = requires(T t) {
     { t.getAllowedMethods() } -> std::convertible_to<std::vector<std::string>>;
 } && IsCallableHandler<T>;
 
-using HandlerFn = std::function<void(const Request& req, Response& res)>;
-using MiddlewareFn = std::function<void(Request& req, Response& res, HandlerFn next)>;
+using HandlerFn = std::function<asio::awaitable<void>(const Request& req, Response& res)>;
+using MiddlewareFn =
+    std::function<asio::awaitable<void>(Request& req, Response& res, HandlerFn next)>;
+
+template<IsCallableHandler T>
+HandlerFn make_handler(T&& handler) {
+    if constexpr (IsSyncHandler<std::decay_t<T>>) {
+        HandlerFn fn = [handler = std::forward<T>(handler)](
+                           const Request& req, Response& res
+                       ) mutable -> asio::awaitable<void> {
+            co_return handler(req, res);
+        };
+        return fn;
+    } else {
+        return std::forward<T>(handler);
+    }
+}
 
 class Router {
 public:
     template<IsCallableHandler T>
-    Router& route(std::string_view path, T handler) {
-        add_route(handler, path, std::nullopt);
+    Router& route(std::string_view path, T&& handler) {
+        add_route(make_handler(std::forward<T>(handler)), path, std::nullopt);
         return *this;
     }
     template<HasAllowedMethods T>
-    Router& route(std::string_view path, T handler) {
-        add_route(handler, path, handler.getAllowedMethods());
+    Router& route(std::string_view path, T&& handler) {
+        auto methods = handler.getAllowedMethods();
+        add_route(make_handler(std::forward<T>(handler)), path, methods);
         return *this;
     }
 
@@ -63,7 +80,7 @@ private:
         HandlerFn f, std::string_view path, std::optional<std::vector<std::string>> methods
     );
     Response default_options_handler(const HandlerPath* handler) const;
-    Response run_handler(HandlerFn f, const URI& handler_path, Request& req) const;
+    asio::awaitable<Response> run_handler(HandlerFn f, const URI& handler_path, Request& req) const;
 
 private:
     std::vector<HandlerPath> m_handlers;
@@ -82,12 +99,13 @@ struct StringLiteral {
 template<StringLiteral... Methods>
 class MethodWrapper {
 public:
-    MethodWrapper(HandlerFn f) : m_handler(f) {
+    template<IsCallableHandler T>
+    MethodWrapper(T&& f) : m_handler(make_handler(std::forward<T>(f))) {
         m_methods = { std::string(Methods.value)... };
     }
 
-    void operator()(const Request& req, Response& res) {
-        m_handler(req, res);
+    asio::awaitable<void> operator()(const Request& req, Response& res) {
+        co_return co_await m_handler(req, res);
     }
 
     std::vector<std::string> getAllowedMethods() const {

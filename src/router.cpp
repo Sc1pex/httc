@@ -54,7 +54,8 @@ Router& Router::wrap(MiddlewareFn middleware) {
     return *this;
 }
 
-Response Router::run_handler(HandlerFn f, const URI& handler_path, Request& req) const {
+asio::awaitable<Response>
+    Router::run_handler(HandlerFn f, const URI& handler_path, Request& req) const {
     auto req_paths = req.uri.paths();
     auto handler_paths = handler_path.paths();
     for (size_t i = 0; i < handler_paths.size(); i++) {
@@ -76,20 +77,20 @@ Response Router::run_handler(HandlerFn f, const URI& handler_path, Request& req)
     Response res(req.method == "HEAD");
 
     size_t middleware_idx = 0;
-    auto run_middleware = [&](this const auto& self) -> void {
+    auto run_middleware = [&](this const auto& self) -> asio::awaitable<void> {
         if (middleware_idx < m_middleware.size()) {
             auto& mw = m_middleware[middleware_idx];
             middleware_idx++;
-            mw(req, res, [&](const Request&, Response&) {
-                self();
+            co_await mw(req, res, [&](const Request&, Response&) -> asio::awaitable<void> {
+                co_await self();
             });
         } else {
-            f(req, res);
+            co_await f(req, res);
         }
     };
-    run_middleware();
+    co_await run_middleware();
 
-    return res;
+    co_return res;
 }
 
 asio::awaitable<std::optional<Response>> Router::handle(Request& req) const {
@@ -113,12 +114,12 @@ asio::awaitable<std::optional<Response>> Router::handle(Request& req) const {
     for (const auto m : matches) {
         if (m != nullptr) {
             if (m->method_handlers.contains(req.method)) {
-                co_return run_handler(m->method_handlers.at(req.method), m->path, req);
+                co_return co_await run_handler(m->method_handlers.at(req.method), m->path, req);
             } else if (m->global_handler.has_value()) {
-                co_return run_handler(*m->global_handler, m->path, req);
+                co_return co_await run_handler(*m->global_handler, m->path, req);
             } else if (req.method == "HEAD" && m->method_handlers.contains("GET")) {
                 req.method = "GET";
-                co_return run_handler(m->method_handlers.at("GET"), m->path, req);
+                co_return co_await run_handler(m->method_handlers.at("GET"), m->path, req);
             } else if (req.method == "OPTIONS") {
                 co_return default_options_handler(m);
             } else {
