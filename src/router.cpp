@@ -1,6 +1,7 @@
 #include "httc/router.h"
 #include "httc/request.h"
 #include "httc/response.h"
+#include "httc/status.h"
 
 namespace httc {
 
@@ -54,8 +55,8 @@ Router& Router::wrap(MiddlewareFn middleware) {
     return *this;
 }
 
-asio::awaitable<Response>
-    Router::run_handler(HandlerFn f, const URI& handler_path, Request& req) const {
+asio::awaitable<void>
+    Router::run_handler(HandlerFn f, const URI& handler_path, Request& req, Response& res) const {
     auto req_paths = req.uri.paths();
     auto handler_paths = handler_path.paths();
     for (size_t i = 0; i < handler_paths.size(); i++) {
@@ -74,8 +75,6 @@ asio::awaitable<Response>
         }
     }
 
-    Response res(req.method == "HEAD");
-
     size_t middleware_idx = 0;
     auto run_middleware = [&](this const auto& self) -> asio::awaitable<void> {
         if (middleware_idx < m_middleware.size()) {
@@ -89,11 +88,9 @@ asio::awaitable<Response>
         }
     };
     co_await run_middleware();
-
-    co_return res;
 }
 
-asio::awaitable<std::optional<Response>> Router::handle(Request& req) const {
+asio::awaitable<void> Router::handle(Request& req, Response& res) const {
     // [0] = full match
     // [1] = param match
     // [2] = wildcard match
@@ -114,14 +111,16 @@ asio::awaitable<std::optional<Response>> Router::handle(Request& req) const {
     for (const auto m : matches) {
         if (m != nullptr) {
             if (m->method_handlers.contains(req.method)) {
-                co_return co_await run_handler(m->method_handlers.at(req.method), m->path, req);
+                co_return co_await run_handler(
+                    m->method_handlers.at(req.method), m->path, req, res
+                );
             } else if (m->global_handler.has_value()) {
-                co_return co_await run_handler(*m->global_handler, m->path, req);
+                co_return co_await run_handler(*m->global_handler, m->path, req, res);
             } else if (req.method == "HEAD" && m->method_handlers.contains("GET")) {
                 req.method = "GET";
-                co_return co_await run_handler(m->method_handlers.at("GET"), m->path, req);
+                co_return co_await run_handler(m->method_handlers.at("GET"), m->path, req, res);
             } else if (req.method == "OPTIONS") {
-                co_return default_options_handler(m);
+                co_return default_options_handler(m, res);
             } else {
                 method_not_allowed = true;
             }
@@ -129,14 +128,13 @@ asio::awaitable<std::optional<Response>> Router::handle(Request& req) const {
     }
 
     if (method_not_allowed) {
-        co_return Response::from_status(StatusCode::METHOD_NOT_ALLOWED);
+        res.status = StatusCode::METHOD_NOT_ALLOWED;
     }
 
-    co_return std::nullopt;
+    res.status = StatusCode::NOT_FOUND;
 }
 
-Response Router::default_options_handler(const HandlerPath* handler) const {
-    Response res;
+void Router::default_options_handler(const HandlerPath* handler, Response& res) const {
     res.status = StatusCode::OK;
 
     std::string allow;
@@ -155,7 +153,6 @@ Response Router::default_options_handler(const HandlerPath* handler) const {
     }
 
     res.headers.set("Allow", allow);
-    return res;
 }
 
 }

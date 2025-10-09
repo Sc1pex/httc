@@ -35,17 +35,18 @@ awaitable<void> handle_conn(tcp::socket socket, sp<Router> router) {
         auto req_result = *req_opt;
         // If there was a parsing error, respond with the appropriate status code
         if (!req_result.has_value()) {
-            auto res = Response::from_status(parse_error_to_status_code(req_result.error()));
-            res.write(socket);
+            auto res =
+                Response::from_status(socket, parse_error_to_status_code(req_result.error()));
+            res.send();
             socket.close();
             co_return;
         }
 
         // Successfully parsed request, handle it
+        Response res{ socket };
         auto req = req_result.value();
-        auto res_opt = co_await router->handle(req);
-        auto res = res_opt.value_or(Response::from_status(StatusCode::NOT_FOUND));
-        res.write(socket);
+        co_await router->handle(req, res);
+        res.send();
     }
 }
 

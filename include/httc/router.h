@@ -64,7 +64,7 @@ public:
 
     Router& wrap(MiddlewareFn middleware);
 
-    asio::awaitable<std::optional<Response>> handle(Request& req) const;
+    asio::awaitable<void> handle(Request& req, Response& res) const;
 
 private:
     struct HandlerPath {
@@ -79,8 +79,9 @@ private:
     void add_route(
         HandlerFn f, std::string_view path, std::optional<std::vector<std::string>> methods
     );
-    Response default_options_handler(const HandlerPath* handler) const;
-    asio::awaitable<Response> run_handler(HandlerFn f, const URI& handler_path, Request& req) const;
+    void default_options_handler(const HandlerPath* handler, Response& res) const;
+    asio::awaitable<void>
+        run_handler(HandlerFn f, const URI& handler_path, Request& req, Response& res) const;
 
 private:
     std::vector<HandlerPath> m_handlers;
