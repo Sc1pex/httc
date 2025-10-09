@@ -2,7 +2,6 @@
 #include <asio.hpp>
 #include "httc/request_parser.h"
 #include "httc/response.h"
-#include "httc/status.h"
 
 namespace httc {
 
