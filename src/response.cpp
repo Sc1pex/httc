@@ -147,4 +147,8 @@ awaitable<void> Response::async_send() {
     }
 }
 
+void Response::set_body(std::string_view body) {
+    m_body = body;
+}
+
 }

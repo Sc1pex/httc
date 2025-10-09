@@ -32,7 +32,6 @@ public:
     asio::awaitable<void> async_send();
 
     void set_body(std::string_view body);
-    void set_body(std::string&& body);
 
     StatusCode status;
     Headers headers;
