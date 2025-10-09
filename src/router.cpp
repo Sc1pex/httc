@@ -129,6 +129,7 @@ asio::awaitable<void> Router::handle(Request& req, Response& res) const {
 
     if (method_not_allowed) {
         res.status = StatusCode::METHOD_NOT_ALLOWED;
+        co_return;
     }
 
     res.status = StatusCode::NOT_FOUND;
