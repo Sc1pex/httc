@@ -1,48 +1,150 @@
 #include "httc/response.h"
 #include <asio.hpp>
+#include <asio/awaitable.hpp>
 #include <asio/error_code.hpp>
+#include <stdexcept>
 #include "httc/status.h"
 
 namespace httc {
 
+using asio::awaitable;
 using asio::ip::tcp;
 
 template<typename... Args>
 void write_fmt(tcp::socket& client, std::format_string<Args...> fmt, Args&&... args) {
     auto s = std::format(fmt, std::forward<Args>(args)...);
-    asio::error_code ec;
-    asio::write(client, asio::buffer(s), ec);
+    asio::write(client, asio::buffer(s));
 }
 
-Response::Response(bool is_head_response) {
+template<typename... Args>
+awaitable<void>
+    async_write_fmt(tcp::socket& client, std::format_string<Args...> fmt, Args&&... args) {
+    auto s = std::format(fmt, std::forward<Args>(args)...);
+    co_await asio::async_write(client, asio::buffer(s), asio::use_awaitable);
+}
+
+Response::Response(tcp::socket& sock, bool is_head_response) : m_sock(sock) {
     m_head = is_head_response;
     status = StatusCode::OK;
     headers.set("Content-Length", "0");
 }
 
-void Response::set_body(std::string_view body) {
-    headers.set("Content-Length", std::to_string(body.size()));
-    if (!m_head) {
-        m_body = std::string(body);
-    }
-}
-
-void Response::write(tcp::socket& client) {
-    write_fmt(client, "HTTP/1.1 {}\r\n", status.code);
-    for (const auto& [key, value] : headers) {
-        write_fmt(client, "{}: {}\r\n", key, value);
-    }
-    write_fmt(client, "\r\n");
-    if (!m_body.empty()) {
-        asio::error_code ec;
-        asio::write(client, asio::buffer(m_body), ec);
-    }
-}
-
-Response Response::from_status(StatusCode status) {
-    Response r;
+Response Response::from_status(tcp::socket& sock, StatusCode status) {
+    Response r(sock);
     r.status = status;
     return r;
+}
+
+void Response::begin_stream() {
+    if (m_state != State::Uninitialized) {
+        throw std::runtime_error("Response already initialized");
+    }
+
+    headers.set("Transfer-Encoding", "chunked");
+    headers.unset("Content-Length");
+
+    m_state = State::Stream;
+
+    // Write first line and header
+    write_fmt(m_sock, "HTTP/1.1 {}\r\n", status.code);
+    for (const auto& [key, value] : headers) {
+        write_fmt(m_sock, "{}: {}\r\n", key, value);
+    }
+    write_fmt(m_sock, "\r\n");
+}
+
+void Response::stream_chunk(std::string_view chunk) {
+    if (m_state != State::Stream) {
+        throw std::runtime_error("Response not in streaming state");
+    }
+
+    if (chunk.empty()) {
+        // Do not write empty chunks because that indicates the end of the stream
+        return;
+    }
+
+    write_fmt(m_sock, "{:X}\r\n", chunk.size());
+    write_fmt(m_sock, "{}\r\n", chunk);
+}
+
+void Response::end_stream() {
+    if (m_state != State::Stream) {
+        throw std::runtime_error("Response not in streaming state");
+    }
+
+    write_fmt(m_sock, "0\r\n\r\n");
+    m_state = State::Sent;
+}
+
+void Response::send() {
+    if (m_state != State::Uninitialized || m_state != State::Body) {
+        throw std::runtime_error("Response already sent or in streaming state");
+    }
+
+    write_fmt(m_sock, "HTTP/1.1 {}\r\n", status.code);
+    for (const auto& [key, value] : headers) {
+        write_fmt(m_sock, "{}: {}\r\n", key, value);
+    }
+    asio::write(m_sock, asio::buffer("\r\n"));
+    if (!m_body.empty()) {
+        asio::write(m_sock, asio::buffer(m_body));
+    }
+}
+
+awaitable<void> Response::async_begin_stream() {
+    if (m_state != State::Uninitialized) {
+        throw std::runtime_error("Response already initialized");
+    }
+
+    headers.set("Transfer-Encoding", "chunked");
+    headers.unset("Content-Length");
+
+    m_state = State::Stream;
+
+    // Write first line and header
+    co_await async_write_fmt(m_sock, "HTTP/1.1 {}\r\n", status.code);
+    for (const auto& [key, value] : headers) {
+        co_await async_write_fmt(m_sock, "{}: {}\r\n", key, value);
+    }
+    co_await async_write_fmt(m_sock, "\r\n");
+}
+
+awaitable<void> Response::async_stream_chunk(std::string_view chunk) {
+    if (m_state != State::Stream) {
+        throw std::runtime_error("Response not in streaming state");
+    }
+
+    if (chunk.empty()) {
+        // Do not write empty chunks because that indicates the end of the stream
+        co_return;
+    }
+
+    co_await async_write_fmt(m_sock, "{:X}\r\n", chunk.size());
+    co_await async_write_fmt(m_sock, "{}\r\n", chunk);
+}
+
+awaitable<void> Response::async_end_stream() {
+    if (m_state != State::Stream) {
+        throw std::runtime_error("Response not in streaming state");
+    }
+
+    co_await async_write_fmt(m_sock, "0\r\n\r\n");
+    m_state = State::Sent;
+}
+
+awaitable<void> Response::async_send() {
+    if (m_state != State::Uninitialized || m_state != State::Body) {
+        throw std::runtime_error("Response already sent or in streaming state");
+    }
+
+    co_await async_write_fmt(m_sock, "HTTP/1.1 {}\r\n", status.code);
+    for (const auto& [key, value] : headers) {
+        co_await async_write_fmt(m_sock, "{}: {}\r\n", key, value);
+    }
+    co_await asio::async_write(m_sock, asio::buffer("\r\n"), asio::use_awaitable);
+    if (!m_body.empty()) {
+        co_await asio::async_write(m_sock, asio::buffer(m_body), asio::use_awaitable);
+    }
 }
 
 }
