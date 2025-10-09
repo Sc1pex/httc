@@ -1,8 +1,5 @@
 {
   "name": "httc",
-  "version": "0.1.0",
-  "description": "HTTP client/server library",
-  "homepage": "https://github.com/Sc1pex/httc",
   "dependencies": ["asio"],
   "features": {
     "tests": {
