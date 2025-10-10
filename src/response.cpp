@@ -27,6 +27,7 @@ Response::Response(tcp::socket& sock, bool is_head_response) : m_sock(sock) {
     m_head = is_head_response;
     status = StatusCode::OK;
     headers.set("Content-Length", "0");
+    m_state = State::Uninitialized;
 }
 
 Response Response::from_status(tcp::socket& sock, StatusCode status) {
@@ -77,7 +78,7 @@ void Response::end_stream() {
 }
 
 void Response::send() {
-    if (m_state != State::Uninitialized || m_state != State::Body) {
+    if (m_state != State::Uninitialized && m_state != State::Body) {
         throw std::runtime_error("Response already sent or in streaming state");
     }
 
@@ -133,7 +134,7 @@ awaitable<void> Response::async_end_stream() {
 }
 
 awaitable<void> Response::async_send() {
-    if (m_state != State::Uninitialized || m_state != State::Body) {
+    if (m_state != State::Uninitialized && m_state != State::Body) {
         throw std::runtime_error("Response already sent or in streaming state");
     }
 

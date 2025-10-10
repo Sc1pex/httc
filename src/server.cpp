@@ -1,5 +1,6 @@
 #include "httc/server.h"
 #include <asio.hpp>
+#include <print>
 #include "httc/request_parser.h"
 #include "httc/response.h"
 
@@ -42,10 +43,31 @@ awaitable<void> handle_conn(tcp::socket socket, sp<Router> router) {
         }
 
         // Successfully parsed request, handle it
-        Response res{ socket };
-        auto req = req_result.value();
-        co_await router->handle(req, res);
-        res.send();
+        try {
+            Response res{ socket };
+            auto req = req_result.value();
+            co_await router->handle(req, res);
+            res.send();
+        } catch (std::exception& e) {
+            std::println("Error handling request: {}", e.what());
+            // On error, respond with 500 Internal Server Error
+            auto res = Response::from_status(socket, StatusCode::INTERNAL_SERVER_ERROR);
+            res.send();
+            socket.close();
+            co_return;
+        }
+    }
+}
+
+asio::awaitable<void> listen(tcp::acceptor acceptor, sp<Router> router) {
+    for (;;) {
+        try {
+            auto socket = co_await acceptor.async_accept(use_awaitable);
+            auto ex = co_await asio::this_coro::executor;
+            asio::co_spawn(ex, handle_conn(std::move(socket), router), asio::detached);
+        } catch (std::exception& e) {
+            std::println("Error accepting connection: {}", e.what());
+        }
     }
 }
 
@@ -55,18 +77,7 @@ void bind_and_listen(
     tcp::endpoint endpoint(asio::ip::make_address(addr), port);
     tcp::acceptor acceptor(io_ctx, endpoint);
 
-    auto listen = [&acceptor, router]() -> awaitable<void> {
-        for (;;) {
-            try {
-                auto socket = co_await acceptor.async_accept(use_awaitable);
-                auto ex = co_await asio::this_coro::executor;
-                asio::co_spawn(ex, handle_conn(std::move(socket), router), asio::detached);
-            } catch (std::exception& e) {
-            }
-        }
-    };
-
-    asio::co_spawn(io_ctx, listen(), asio::detached);
+    asio::co_spawn(io_ctx, listen(std::move(acceptor), router), asio::detached);
 }
 
 }
