@@ -55,7 +55,7 @@ set_target_properties(httc PROPERTIES
 )
 
 if(HTTC_BUILD_EXAMPLES)
-    add_subdirectory(bin)
+    add_subdirectory(examples)
 endif()
 
 if(HTTC_BUILD_TESTS)
