@@ -27,8 +27,12 @@ int main(int argc, char** argv) {
     auto router = std::make_shared<httc::Router>();
     router->route("/*", httc::utils::FileServer(args.file_dir, true));
 
+    asio::io_context io_ctx;
+
     std::println("Listening on port {}", args.port);
-    httc::bind_and_listen("0.0.0.0", args.port, router);
+    httc::bind_and_listen("0.0.0.0", args.port, router, io_ctx);
+
+    io_ctx.run();
 
     return 0;
 }

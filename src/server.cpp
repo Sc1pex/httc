@@ -50,7 +50,7 @@ awaitable<void> handle_conn(tcp::socket socket, sp<Router> router) {
 }
 
 void bind_and_listen(
-    const std::string& addr, unsigned int port, sp<Router> router, asio::io_context io_ctx
+    const std::string& addr, unsigned int port, sp<Router> router, asio::io_context& io_ctx
 ) {
     tcp::endpoint endpoint(asio::ip::make_address(addr), port);
     tcp::acceptor acceptor(io_ctx, endpoint);
@@ -67,7 +67,6 @@ void bind_and_listen(
     };
 
     asio::co_spawn(io_ctx, listen(), asio::detached);
-    io_ctx.run();
 }
 
 }
