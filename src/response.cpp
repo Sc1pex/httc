@@ -74,22 +74,6 @@ void Response::end_stream() {
     }
 
     write_fmt(m_sock, "0\r\n\r\n");
-    m_state = State::Sent;
-}
-
-void Response::send() {
-    if (m_state != State::Uninitialized && m_state != State::Body) {
-        throw std::runtime_error("Response already sent or in streaming state");
-    }
-
-    write_fmt(m_sock, "HTTP/1.1 {}\r\n", status.code);
-    for (const auto& [key, value] : headers) {
-        write_fmt(m_sock, "{}: {}\r\n", key, value);
-    }
-    asio::write(m_sock, asio::buffer("\r\n"));
-    if (!m_body.empty()) {
-        asio::write(m_sock, asio::buffer(m_body));
-    }
 }
 
 awaitable<void> Response::async_begin_stream() {
@@ -130,25 +114,49 @@ awaitable<void> Response::async_end_stream() {
     }
 
     co_await async_write_fmt(m_sock, "0\r\n\r\n");
-    m_state = State::Sent;
 }
 
-awaitable<void> Response::async_send() {
-    if (m_state != State::Uninitialized && m_state != State::Body) {
-        throw std::runtime_error("Response already sent or in streaming state");
+awaitable<void> Response::send(Response&& res) {
+    if (res.m_state == State::Stream) {
+        // A streaming response is finished by the end_stream method
+        co_return;
     }
 
-    co_await async_write_fmt(m_sock, "HTTP/1.1 {}\r\n", status.code);
-    for (const auto& [key, value] : headers) {
-        co_await async_write_fmt(m_sock, "{}: {}\r\n", key, value);
+    co_await async_write_fmt(res.m_sock, "HTTP/1.1 {}\r\n", res.status.code);
+    for (const auto& [key, value] : res.headers) {
+        co_await async_write_fmt(res.m_sock, "{}: {}\r\n", key, value);
     }
-    co_await asio::async_write(m_sock, asio::buffer("\r\n"), asio::use_awaitable);
-    if (!m_body.empty()) {
-        co_await asio::async_write(m_sock, asio::buffer(m_body), asio::use_awaitable);
+    co_await asio::async_write(res.m_sock, asio::buffer("\r\n"), asio::use_awaitable);
+    if (!res.m_body.empty()) {
+        co_await asio::async_write(res.m_sock, asio::buffer(res.m_body), asio::use_awaitable);
+    }
+}
+
+void Response::send_blocking(Response&& res) {
+    if (res.m_state == State::Stream) {
+        // A streaming response is finished by the end_stream method
+        return;
+    }
+
+    write_fmt(res.m_sock, "HTTP/1.1 {}\r\n", res.status.code);
+    for (const auto& [key, value] : res.headers) {
+        write_fmt(res.m_sock, "{}: {}\r\n", key, value);
+    }
+    asio::write(res.m_sock, asio::buffer("\r\n"));
+    if (!res.m_body.empty()) {
+        asio::write(res.m_sock, asio::buffer(res.m_body));
     }
 }
 
 void Response::set_body(std::string_view body) {
+    if (m_state != State::Uninitialized) {
+        throw std::runtime_error("Cannot set body after response has been initialized");
+    }
+
+    if (m_head) {
+        return;
+    }
+    headers.set("Content-Length", std::to_string(body.size()));
     m_body = body;
 }
 

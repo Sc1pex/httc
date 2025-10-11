@@ -37,7 +37,7 @@ awaitable<void> handle_conn(tcp::socket socket, sp<Router> router) {
         if (!req_result.has_value()) {
             auto res =
                 Response::from_status(socket, parse_error_to_status_code(req_result.error()));
-            res.send();
+            co_await Response::send(std::move(res));
             socket.close();
             co_return;
         }
@@ -47,12 +47,11 @@ awaitable<void> handle_conn(tcp::socket socket, sp<Router> router) {
             Response res{ socket };
             auto req = req_result.value();
             co_await router->handle(req, res);
-            res.send();
+            co_await Response::send(std::move(res));
         } catch (std::exception& e) {
             std::println("Error handling request: {}", e.what());
-            // On error, respond with 500 Internal Server Error
             auto res = Response::from_status(socket, StatusCode::INTERNAL_SERVER_ERROR);
-            res.send();
+            Response::send_blocking(std::move(res));
             socket.close();
             co_return;
         }

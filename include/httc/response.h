@@ -13,7 +13,6 @@ public:
         Uninitialized,
         Stream,
         Body,
-        Sent,
     };
 
     Response(asio::ip::tcp::socket& sock, bool is_head_response = false);
@@ -23,15 +22,17 @@ public:
     void begin_stream();
     void stream_chunk(std::string_view chunk);
     void end_stream();
-    void send();
 
     // Async versions
     asio::awaitable<void> async_begin_stream();
     asio::awaitable<void> async_stream_chunk(std::string_view chunk);
     asio::awaitable<void> async_end_stream();
-    asio::awaitable<void> async_send();
 
     void set_body(std::string_view body);
+
+    static asio::awaitable<void> send(Response&& res);
+    // Needed because co_await is not avabile in catch
+    static void send_blocking(Response&& res);
 
     StatusCode status;
     Headers headers;
