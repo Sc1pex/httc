@@ -126,9 +126,9 @@ awaitable<void> Response::send(Response&& res) {
     for (const auto& [key, value] : res.headers) {
         co_await async_write_fmt(res.m_sock, "{}: {}\r\n", key, value);
     }
-    co_await asio::async_write(res.m_sock, asio::buffer("\r\n"), asio::use_awaitable);
+    co_await async_write_fmt(res.m_sock, "\r\n");
     if (!res.m_body.empty()) {
-        co_await asio::async_write(res.m_sock, asio::buffer(res.m_body), asio::use_awaitable);
+        co_await async_write_fmt(res.m_sock, "{}", res.m_body);
     }
 }
 
@@ -142,9 +142,9 @@ void Response::send_blocking(Response&& res) {
     for (const auto& [key, value] : res.headers) {
         write_fmt(res.m_sock, "{}: {}\r\n", key, value);
     }
-    asio::write(res.m_sock, asio::buffer("\r\n"));
+    write_fmt(res.m_sock, "\r\n");
     if (!res.m_body.empty()) {
-        asio::write(res.m_sock, asio::buffer(res.m_body));
+        write_fmt(res.m_sock, "{}", res.m_body);
     }
 }
 
