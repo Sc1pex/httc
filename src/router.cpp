@@ -120,7 +120,13 @@ asio::awaitable<void> Router::handle(Request& req, Response& res) const {
                 req.method = "GET";
                 co_return co_await run_handler(m->method_handlers.at("GET"), m->path, req, res);
             } else if (req.method == "OPTIONS") {
-                co_return default_options_handler(m, res);
+                co_return co_await run_handler(
+                    [this, &m](const Request& req, Response& res) -> asio::awaitable<void> {
+                        this->default_options_handler(m, res);
+                        co_return;
+                    },
+                    m->path, req, res
+                );
             } else {
                 method_not_allowed = true;
             }
