@@ -354,19 +354,36 @@ TEST_CASE("Middleware") {
             co_await next(req, res);
             call_order.push_back(4);
         })
-        .route("/test", [&](const httc::Request&, httc::Response&) {
-            call_order.push_back(3);
-        });
+        .route("/test", httc::MethodWrapper<"GET">([&](const httc::Request&, httc::Response&) {
+                   call_order.push_back(3);
+               }));
 
-    httc::Request req;
-    req.method = "GET";
-    req.uri = *httc::URI::parse("/test");
+    SECTION("GET request") {
+        httc::Request req;
+        req.method = "GET";
+        req.uri = *httc::URI::parse("/test");
 
-    auto res = get_response(router, req);
-    REQUIRE(res.status.code == 200);
+        auto res = get_response(router, req);
+        REQUIRE(res.status.code == 200);
 
-    REQUIRE(call_order.size() == 5);
-    for (int i = 0; i < 5; i++) {
-        CHECK(call_order[i] == i + 1);
+        REQUIRE(call_order.size() == 5);
+        for (int i = 0; i < 5; i++) {
+            CHECK(call_order[i] == i + 1);
+        }
+    }
+
+    SECTION("OPTIONS request") {
+        httc::Request req;
+        req.method = "OPTIONS";
+        req.uri = *httc::URI::parse("/test");
+        call_order.clear();
+
+        auto res = get_response(router, req);
+        REQUIRE(res.status.code == 200);
+        REQUIRE(call_order.size() == 4);
+        REQUIRE(call_order[0] == 1);
+        REQUIRE(call_order[1] == 2);
+        REQUIRE(call_order[2] == 4);
+        REQUIRE(call_order[3] == 5);
     }
 }
