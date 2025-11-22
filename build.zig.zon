@@ -1,0 +1,12 @@
+.{
+    .name = .httc,
+    .version = "0.4.0",
+    .dependencies = .{
+        .asio = .{
+            .url = "git+https://github.com/Sc1pex/asio.git#1725591c61abf3dc5e0af584d61a6e2bfdd96f57",
+            .hash = "asio-1.36.0-1c_q_Paz6QCasPahu85XdlpKpE1tdefUJTNSCbVBUdRd",
+        },
+    },
+    .paths = .{""},
+    .fingerprint = 0x13c64c6cf9ba29f7,
+}

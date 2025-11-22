@@ -1,6 +1,5 @@
-build/
 .cache/
-
-# vcpkg build artifacts
-vcpkg_installed/
-*.log
+cdb-frags/
+.zig-cache/
+zig-out/
+compile_commands.json
