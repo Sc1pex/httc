@@ -19,28 +19,21 @@ pub fn build(b: *std.Build) void {
         .include_extensions = &.{".h"},
     });
     httc_lib.addCSourceFiles(.{
+        .root = b.path("src"),
         .files = &.{
-            "src/headers.cpp",
-            "src/percent_encoding.cpp",
-            "src/request.cpp",
-            "src/request_parser.cpp",
-            "src/response.cpp",
-            "src/router.cpp",
-            "src/server.cpp",
-            "src/status.cpp",
-            "src/uri.cpp",
+            "headers.cpp",
+            "percent_encoding.cpp",
+            "request.cpp",
+            "request_parser.cpp",
+            "response.cpp",
+            "router.cpp",
+            "server.cpp",
+            "status.cpp",
+            "uri.cpp",
+            "utils/file_server.cpp",
+            "utils/mime.cpp",
         },
-        .flags = &.{
-            "-std=c++23",
-            "-Iinclude",
-
-            // https://github.com/ziglang/zig/issues/25455
-            "-U_LIBCPP_ENABLE_CXX17_REMOVED_UNEXPECTED_FUNCTIONS",
-
-            // Used to generate compile_commands.json fragments
-            "-gen-cdb-fragment-path",
-            "cdb-frags",
-        },
+        .flags = CXX_FLAGS,
     });
 
     const asio_dep = b.dependency("asio", .{});
@@ -54,6 +47,40 @@ pub fn build(b: *std.Build) void {
     cdb_step.makeFn = collect_cdb_fragments;
     cdb_step.dependOn(&httc_lib.step);
     b.getInstallStep().dependOn(cdb_step);
+
+    const catch2_dep = b.dependency("catch2", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const catch2_lib = catch2_dep.artifact("Catch2");
+    const catch2_main = catch2_dep.artifact("Catch2WithMain");
+
+    const test_step = b.step("test", "Run tests");
+    const test_exe = b.addExecutable(.{
+        .name = "test",
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const run_test = b.addRunArtifact(test_exe);
+
+    test_exe.addCSourceFiles(.{
+        .root = b.path("test"),
+        .files = &.{
+            "headers.cpp",
+            "percent_encoding.cpp",
+            "request_parser.cpp",
+            "router.cpp",
+            "uri.cpp",
+        },
+        .flags = CXX_FLAGS,
+    });
+    test_exe.linkLibrary(asio_lib);
+    test_exe.linkLibrary(httc_lib);
+    test_exe.linkLibrary(catch2_lib);
+    test_exe.linkLibrary(catch2_main);
+    test_step.dependOn(&run_test.step);
 }
 
 // Taken from https://zacoons.com/blog/2025-02-16-how-to-get-clang-lsp-working-with-zig/
@@ -85,3 +112,17 @@ fn collect_cdb_fragments(s: *std.Build.Step, _: std.Build.Step.MakeOptions) !voi
     }
     try outf.writeAll("]");
 }
+
+const CXX_FLAGS = &.{
+    "-std=c++23",
+    "-Iinclude",
+    "-Wall",
+    "-Wextra",
+
+    // https://github.com/ziglang/zig/issues/25455
+    "-U_LIBCPP_ENABLE_CXX17_REMOVED_UNEXPECTED_FUNCTIONS",
+
+    // Used to generate compile_commands.json fragments
+    "-gen-cdb-fragment-path",
+    "cdb-frags",
+};
