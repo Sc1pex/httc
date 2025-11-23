@@ -1,9 +1,9 @@
-#include "httc/response.h"
+#include "response.h"
 #include <asio.hpp>
 #include <asio/awaitable.hpp>
 #include <asio/error_code.hpp>
 #include <stdexcept>
-#include "httc/status.h"
+#include "status.h"
 
 namespace httc {
 

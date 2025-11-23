@@ -1,7 +1,7 @@
-#include "httc/utils/file_server.h"
+#include "utils/file_server.h"
 #include <fstream>
-#include "httc/status.h"
-#include "httc/utils/mime.h"
+#include "status.h"
+#include "utils/mime.h"
 
 namespace fs = std::filesystem;
 

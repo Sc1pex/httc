@@ -2,8 +2,8 @@
 
 #include <asio.hpp>
 #include <expected>
-#include "httc/request.h"
-#include "httc/status.h"
+#include "request.h"
+#include "status.h"
 
 namespace httc {
 

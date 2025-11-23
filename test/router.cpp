@@ -1,9 +1,9 @@
-#include "httc/router.h"
+#include "router.h"
 #include <asio.hpp>
 #include <catch2/catch_test_macros.hpp>
-#include "httc/request.h"
-#include "httc/response.h"
-#include "httc/status.h"
+#include "request.h"
+#include "response.h"
+#include "status.h"
 
 namespace methods = httc::methods;
 using asio::awaitable;

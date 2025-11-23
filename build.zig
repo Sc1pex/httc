@@ -15,6 +15,9 @@ pub fn build(b: *std.Build) void {
         ),
     });
 
+    httc_lib.installHeadersDirectory(b.path("include"), "httc", .{
+        .include_extensions = &.{".h"},
+    });
     httc_lib.addCSourceFiles(.{
         .files = &.{
             "src/headers.cpp",

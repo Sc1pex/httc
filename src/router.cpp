@@ -1,7 +1,7 @@
-#include "httc/router.h"
-#include "httc/request.h"
-#include "httc/response.h"
-#include "httc/status.h"
+#include "router.h"
+#include "request.h"
+#include "response.h"
+#include "status.h"
 
 namespace httc {
 

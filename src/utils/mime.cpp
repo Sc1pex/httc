@@ -1,4 +1,4 @@
-#include "httc/utils/mime.h"
+#include "utils/mime.h"
 #include <unordered_map>
 
 namespace httc {

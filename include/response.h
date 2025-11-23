@@ -2,8 +2,8 @@
 
 #include <asio/awaitable.hpp>
 #include <asio/ip/tcp.hpp>
-#include "httc/headers.h"
-#include "httc/status.h"
+#include "headers.h"
+#include "status.h"
 
 namespace httc {
 

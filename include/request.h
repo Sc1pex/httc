@@ -4,8 +4,8 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include "httc/headers.h"
-#include "httc/uri.h"
+#include "headers.h"
+#include "uri.h"
 
 namespace httc {
 

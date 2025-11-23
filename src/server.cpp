@@ -1,8 +1,8 @@
-#include "httc/server.h"
+#include "server.h"
 #include <asio.hpp>
 #include <print>
-#include "httc/request_parser.h"
-#include "httc/response.h"
+#include "request_parser.h"
+#include "response.h"
 
 namespace httc {
 
