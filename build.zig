@@ -15,6 +15,7 @@ pub fn build(b: *std.Build) void {
         ),
     });
 
+    httc_lib.addIncludePath(b.path("include"));
     httc_lib.installHeadersDirectory(b.path("include"), "httc", .{
         .include_extensions = &.{".h"},
     });
@@ -115,7 +116,6 @@ fn collect_cdb_fragments(s: *std.Build.Step, _: std.Build.Step.MakeOptions) !voi
 
 const CXX_FLAGS = &.{
     "-std=c++23",
-    "-Iinclude",
     "-Wall",
     "-Wextra",
 
