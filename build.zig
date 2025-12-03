@@ -42,6 +42,9 @@ pub fn build(b: *std.Build) void {
 
     httc_lib.linkLibrary(asio_lib);
 
+    // Make asio headers available to consumers of httc
+    httc_lib.installed_headers.appendSlice(asio_lib.installed_headers.items) catch unreachable;
+
     b.installArtifact(httc_lib);
 
     const cdb_step = b.step("cdb", "Compile CDB fragments into compile_commands.json");

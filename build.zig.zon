@@ -1,6 +1,6 @@
 .{
     .name = .httc,
-    .version = "0.4.1",
+    .version = "0.1.0",
     .dependencies = .{
         .asio = .{
             .url = "https://github.com/Sc1pex/asio/archive/refs/tags/v1.36.0.tar.gz",
