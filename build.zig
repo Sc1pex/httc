@@ -53,7 +53,6 @@ fn build_httc_lib(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std
             "server.cpp",
             "status.cpp",
             "uri.cpp",
-            "utils/file_server.cpp",
             "utils/mime.cpp",
         },
         .flags = CXX_FLAGS,
