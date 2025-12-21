@@ -1,4 +1,4 @@
-#include "headers.h"
+#include <httc/headers.h>
 #include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("Headers case-insensitive lookup") {

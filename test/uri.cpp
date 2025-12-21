@@ -1,4 +1,4 @@
-#include "uri.h"
+#include <httc/uri.h>
 #include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("Parse valid URIs") {

@@ -47,11 +47,6 @@ pub fn build(b: *std.Build) void {
 
     b.installArtifact(httc_lib);
 
-    const cdb_step = b.step("cdb", "Compile CDB fragments into compile_commands.json");
-    cdb_step.makeFn = collect_cdb_fragments;
-    cdb_step.dependOn(&httc_lib.step);
-    b.getInstallStep().dependOn(cdb_step);
-
     const catch2_dep = b.dependency("catch2", .{
         .target = target,
         .optimize = optimize,
@@ -85,6 +80,12 @@ pub fn build(b: *std.Build) void {
     test_exe.linkLibrary(catch2_lib);
     test_exe.linkLibrary(catch2_main);
     test_step.dependOn(&run_test.step);
+
+    const cdb_step = b.step("cdb", "Compile CDB fragments into compile_commands.json");
+    cdb_step.makeFn = collect_cdb_fragments;
+    cdb_step.dependOn(&httc_lib.step);
+    cdb_step.dependOn(&test_exe.step);
+    b.getInstallStep().dependOn(cdb_step);
 }
 
 // Taken from https://zacoons.com/blog/2025-02-16-how-to-get-clang-lsp-working-with-zig/
