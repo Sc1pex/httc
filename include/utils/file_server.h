@@ -2,8 +2,8 @@
 
 #include <filesystem>
 #include <string>
-#include "request.h"
-#include "response.h"
+#include "../request.h"
+#include "../response.h"
 
 namespace httc {
 namespace utils {
