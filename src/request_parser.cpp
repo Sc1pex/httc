@@ -7,14 +7,20 @@
 
 namespace httc {
 
-const std::size_t MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB
-
-RequestParser::RequestParser() {
+RequestParser::RequestParser(std::size_t max_headers_size, std::size_t max_body_size)
+: m_max_headers_size(max_headers_size), m_max_body_size(max_body_size) {
     m_state = State::PARSE_REQUEST_LINE;
 }
 
 std::optional<RequestParser::ParseResult>
     RequestParser::feed_data(const char* data, std::size_t length) {
+    if ((m_state == State::PARSE_HEADERS || m_state == State::PARSE_REQUEST_LINE)
+        && m_buffer.size() + length > m_max_headers_size) {
+        reset();
+        m_buffer = {};
+        return std::unexpected(RequestParserError::HEADER_TOO_LARGE);
+    }
+
     m_buffer.append(data, length);
 
     while (true) {
@@ -221,7 +227,7 @@ std::optional<RequestParserError> RequestParser::parse_body_content_length() {
     if (res.ec != std::errc()) {
         return RequestParserError::INVALID_HEADER;
     }
-    if (content_length > MAX_BODY_SIZE) {
+    if (content_length > m_max_body_size) {
         return RequestParserError::CONTENT_TOO_LARGE;
     }
 
@@ -251,7 +257,7 @@ std::optional<RequestParserError> RequestParser::parse_body_chunked_size() {
     if (res.ec != std::errc()) {
         return RequestParserError::INVALID_CHUNK_ENCODING;
     }
-    if (chunk_size > MAX_BODY_SIZE || m_req.body.size() + chunk_size > MAX_BODY_SIZE) {
+    if (chunk_size > m_max_body_size || m_req.body.size() + chunk_size > m_max_body_size) {
         return RequestParserError::CONTENT_TOO_LARGE;
     }
 

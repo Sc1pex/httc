@@ -12,6 +12,7 @@ enum class RequestParserError {
     INVALID_HEADER,
     UNSUPPORTED_TRANSFER_ENCODING,
     CONTENT_TOO_LARGE,
+    HEADER_TOO_LARGE,
     INVALID_CHUNK_ENCODING,
 };
 
@@ -19,7 +20,7 @@ StatusCode parse_error_to_status_code(RequestParserError error);
 
 class RequestParser {
 public:
-    RequestParser();
+    RequestParser(std::size_t max_headers_size, std::size_t max_body_size);
     using ParseResult = std::expected<Request, RequestParserError>;
 
     std::optional<ParseResult> feed_data(const char* data, std::size_t length);
@@ -54,6 +55,9 @@ private:
     State m_state;
 
     std::size_t m_chunk_bytes_remaining;
+
+    std::size_t m_max_headers_size;
+    std::size_t m_max_body_size;
 };
 
 }

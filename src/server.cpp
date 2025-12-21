@@ -10,8 +10,8 @@ using asio::awaitable;
 using asio::use_awaitable;
 using asio::ip::tcp;
 
-awaitable<void> handle_conn(tcp::socket socket, sp<Router> router) {
-    RequestParser req_parser;
+awaitable<void> handle_conn(tcp::socket socket, sp<Router> router, const ServerConfig& cfg) {
+    RequestParser req_parser{ cfg.max_header_size, cfg.max_body_size };
 
     auto buf = std::array<char, 1024>();
 
@@ -58,12 +58,13 @@ awaitable<void> handle_conn(tcp::socket socket, sp<Router> router) {
     }
 }
 
-asio::awaitable<void> listen(tcp::acceptor acceptor, sp<Router> router) {
+asio::awaitable<void>
+    listen(tcp::acceptor acceptor, sp<Router> router, const ServerConfig& config) {
     for (;;) {
         try {
             auto socket = co_await acceptor.async_accept(use_awaitable);
             auto ex = co_await asio::this_coro::executor;
-            asio::co_spawn(ex, handle_conn(std::move(socket), router), asio::detached);
+            asio::co_spawn(ex, handle_conn(std::move(socket), router, config), asio::detached);
         } catch (std::exception& e) {
             std::println("Error accepting connection: {}", e.what());
         }
@@ -71,12 +72,13 @@ asio::awaitable<void> listen(tcp::acceptor acceptor, sp<Router> router) {
 }
 
 void bind_and_listen(
-    const std::string& addr, unsigned int port, sp<Router> router, asio::io_context& io_ctx
+    const std::string& addr, unsigned int port, sp<Router> router, asio::io_context& io_ctx,
+    const ServerConfig& config
 ) {
     tcp::endpoint endpoint(asio::ip::make_address(addr), port);
     tcp::acceptor acceptor(io_ctx, endpoint);
 
-    asio::co_spawn(io_ctx, listen(std::move(acceptor), router), asio::detached);
+    asio::co_spawn(io_ctx, listen(std::move(acceptor), router, config), asio::detached);
 }
 
 }

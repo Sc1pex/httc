@@ -1,10 +1,12 @@
 #include <httc/request_parser.h>
 #include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
-#include <print>
+
+const std::size_t MAX_HEADER_SIZE = 16 * 1024;
+const std::size_t MAX_BODY_SIZE = 10 * 1024 * 1024;
 
 TEST_CASE("Parse request line") {
-    httc::RequestParser parser;
+    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE };
 
     SECTION("Valid request line") {
         std::string_view message = "GET /index.html HTTP/1.1\r\n\r\n";
@@ -78,7 +80,7 @@ TEST_CASE("Parse request line") {
 }
 
 TEST_CASE("Parse query parameters") {
-    httc::RequestParser parser;
+    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE };
 
     SECTION("Valid query parameters") {
         std::string_view message = "GET /search?q=test&page=1 HTTP/1.1\r\n\r\n";
@@ -112,7 +114,7 @@ TEST_CASE("Parse query parameters") {
 }
 
 TEST_CASE("Parse headers") {
-    httc::RequestParser parser;
+    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE };
 
     SECTION("Valid headers") {
         std::string_view message = "GET /index.html HTTP/1.1\r\n"
@@ -227,10 +229,23 @@ TEST_CASE("Parse headers") {
         REQUIRE(header.has_value());
         REQUIRE(header.value() == "");
     }
+
+    SECTION("Headers exceeding maximum size") {
+        std::string large_header_value(MAX_HEADER_SIZE, 'a');
+        std::string message = "GET /index.html HTTP/1.1\r\n"
+                              "X-Large-Header: "
+                              + large_header_value
+                              + "\r\n"
+                                "\r\n";
+        auto result = parser.feed_data(message.data(), message.size());
+        REQUIRE(result.has_value());
+        REQUIRE(!result->has_value());
+        REQUIRE(result->error() == httc::RequestParserError::HEADER_TOO_LARGE);
+    }
 }
 
 TEST_CASE("Parse Content-length bodies") {
-    httc::RequestParser parser;
+    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE };
 
     SECTION("Valid Content-Length body") {
         std::string_view message = "POST /submit HTTP/1.1\r\n"
@@ -275,7 +290,7 @@ TEST_CASE("Parse Content-length bodies") {
 }
 
 TEST_CASE("Parse chunked bodies") {
-    httc::RequestParser parser;
+    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE };
 
     SECTION("Valid chunked body") {
         std::string_view message = "POST /submit HTTP/1.1\r\n"
@@ -317,7 +332,7 @@ TEST_CASE("Parse chunked bodies") {
 }
 
 TEST_CASE("Parse in multiple chunks") {
-    httc::RequestParser parser;
+    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE };
 
     SECTION("Without body") {
         std::string_view message = "GET /index.html HTTP/1.1\r\n"
@@ -404,7 +419,7 @@ TEST_CASE("Parse in multiple chunks") {
 }
 
 TEST_CASE("Multiple requests") {
-    httc::RequestParser parser;
+    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE };
 
     std::string_view message1 = "POST /abc HTTP/1.1\r\n"
                                 "Host: example.com\r\n"
