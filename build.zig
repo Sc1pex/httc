@@ -4,6 +4,21 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const httc_lib = build_httc_lib(b, target, optimize);
+    const test_exe = build_tests(b, target, optimize, httc_lib);
+
+    const test_step = b.step("test", "Run tests");
+    const run_test = b.addRunArtifact(test_exe);
+    test_step.dependOn(&run_test.step);
+
+    const cdb_step = b.step("cdb", "Compile CDB fragments into compile_commands.json");
+    cdb_step.makeFn = collect_cdb_fragments;
+    cdb_step.dependOn(&httc_lib.step);
+    cdb_step.dependOn(&test_exe.step);
+    b.getInstallStep().dependOn(cdb_step);
+}
+
+fn build_httc_lib(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
     const httc_lib = b.addLibrary(.{
         .name = "httc",
         .root_module = b.createModule(
@@ -39,7 +54,6 @@ pub fn build(b: *std.Build) void {
 
     const asio_dep = b.dependency("asio", .{});
     const asio_lib = asio_dep.artifact("asio");
-
     httc_lib.linkLibrary(asio_lib);
 
     // Make asio headers available to consumers of httc
@@ -47,6 +61,10 @@ pub fn build(b: *std.Build) void {
 
     b.installArtifact(httc_lib);
 
+    return httc_lib;
+}
+
+fn build_tests(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, httc_lib: *std.Build.Step.Compile) *std.Build.Step.Compile {
     const catch2_dep = b.dependency("catch2", .{
         .target = target,
         .optimize = optimize,
@@ -54,7 +72,6 @@ pub fn build(b: *std.Build) void {
     const catch2_lib = catch2_dep.artifact("Catch2");
     const catch2_main = catch2_dep.artifact("Catch2WithMain");
 
-    const test_step = b.step("test", "Run tests");
     const test_exe = b.addExecutable(.{
         .name = "test",
         .root_module = b.createModule(.{
@@ -62,8 +79,6 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         }),
     });
-    const run_test = b.addRunArtifact(test_exe);
-
     test_exe.addCSourceFiles(.{
         .root = b.path("test"),
         .files = &.{
@@ -75,17 +90,13 @@ pub fn build(b: *std.Build) void {
         },
         .flags = CXX_FLAGS,
     });
-    test_exe.linkLibrary(asio_lib);
     test_exe.linkLibrary(httc_lib);
     test_exe.linkLibrary(catch2_lib);
     test_exe.linkLibrary(catch2_main);
-    test_step.dependOn(&run_test.step);
 
-    const cdb_step = b.step("cdb", "Compile CDB fragments into compile_commands.json");
-    cdb_step.makeFn = collect_cdb_fragments;
-    cdb_step.dependOn(&httc_lib.step);
-    cdb_step.dependOn(&test_exe.step);
-    b.getInstallStep().dependOn(cdb_step);
+    b.installArtifact(test_exe);
+
+    return test_exe;
 }
 
 // Taken from https://zacoons.com/blog/2025-02-16-how-to-get-clang-lsp-working-with-zig/
