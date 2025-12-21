@@ -5,16 +5,23 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const httc_lib = build_httc_lib(b, target, optimize);
-    const test_exe = build_tests(b, target, optimize, httc_lib);
-
-    const test_step = b.step("test", "Run tests");
-    const run_test = b.addRunArtifact(test_exe);
-    test_step.dependOn(&run_test.step);
 
     const cdb_step = b.step("cdb", "Compile CDB fragments into compile_commands.json");
     cdb_step.makeFn = collect_cdb_fragments;
     cdb_step.dependOn(&httc_lib.step);
-    cdb_step.dependOn(&test_exe.step);
+
+    build_tests(b, target, optimize, httc_lib, cdb_step);
+
+    add_example(
+        b,
+        target,
+        optimize,
+        httc_lib,
+        cdb_step,
+        "simple",
+        &.{"simple.cpp"},
+    );
+
     b.getInstallStep().dependOn(cdb_step);
 }
 
@@ -64,7 +71,13 @@ fn build_httc_lib(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std
     return httc_lib;
 }
 
-fn build_tests(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, httc_lib: *std.Build.Step.Compile) *std.Build.Step.Compile {
+fn build_tests(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    httc_lib: *std.Build.Step.Compile,
+    cdb_step: *std.Build.Step,
+) void {
     const catch2_dep = b.dependency("catch2", .{
         .target = target,
         .optimize = optimize,
@@ -96,7 +109,47 @@ fn build_tests(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
 
     b.installArtifact(test_exe);
 
-    return test_exe;
+    const test_step = b.step("test", "Run tests");
+    const run_test = b.addRunArtifact(test_exe);
+    test_step.dependOn(&run_test.step);
+
+    cdb_step.dependOn(&test_exe.step);
+}
+
+fn add_example(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    httc_lib: *std.Build.Step.Compile,
+    cdb_step: *std.Build.Step,
+    example_name: []const u8,
+    files: []const []const u8,
+) void {
+    const name = b.fmt("{s}_example", .{example_name});
+
+    const example = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+            .link_libcpp = true,
+        }),
+    });
+    example.addCSourceFiles(.{
+        .root = b.path("examples"),
+        .files = files,
+        .flags = CXX_FLAGS,
+    });
+    example.linkLibrary(httc_lib);
+
+    b.installArtifact(example);
+
+    const description = b.fmt("Run {s} example", .{example_name});
+    const run_step = b.step(name, description);
+    const run_example = b.addRunArtifact(example);
+    run_step.dependOn(&run_example.step);
+
+    cdb_step.dependOn(&example.step);
 }
 
 // Taken from https://zacoons.com/blog/2025-02-16-how-to-get-clang-lsp-working-with-zig/
