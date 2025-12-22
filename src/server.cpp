@@ -10,16 +10,47 @@ using asio::awaitable;
 using asio::use_awaitable;
 using asio::ip::tcp;
 
+awaitable<std::optional<std::tuple<asio::error_code, std::size_t>>> async_read_with_timeout(
+    tcp::socket& socket, asio::mutable_buffer buffer, std::chrono::seconds timeout_seconds
+) {
+    asio::steady_timer timer(co_await asio::this_coro::executor);
+    bool timeout_occurred = false;
+
+    timer.expires_after(timeout_seconds);
+    timer.async_wait([&](const asio::error_code& ec) {
+        if (!ec) {
+            timeout_occurred = true;
+            socket.cancel();
+        }
+    });
+
+    auto [ec, n] = co_await socket.async_read_some(buffer, asio::as_tuple(use_awaitable));
+
+    timer.cancel();
+
+    if (timeout_occurred) {
+        co_return std::nullopt;
+    } else {
+        co_return std::make_optional(std::make_tuple(ec, n));
+    }
+}
+
 awaitable<void> handle_conn(tcp::socket socket, sp<Router> router, const ServerConfig& cfg) {
     RequestParser req_parser{ cfg.max_header_size, cfg.max_body_size };
 
     auto buf = std::array<char, 1024>();
 
     for (;;) {
-        asio::error_code ec;
-        std::size_t n = co_await socket.async_read_some(
-            asio::buffer(buf), asio::redirect_error(use_awaitable, ec)
+        auto read_result = co_await async_read_with_timeout(
+            socket, asio::buffer(buf), cfg.request_timeout_seconds
         );
+        if (!read_result.has_value()) {
+            std::println("Request timed out");
+            socket.close();
+            co_return;
+        }
+
+        auto [ec, n] = read_result.value();
 
         // If eof is reached, parse the remaining data
         if (ec && ec != asio::error::eof) {
@@ -33,7 +64,6 @@ awaitable<void> handle_conn(tcp::socket socket, sp<Router> router, const ServerC
         }
 
         auto req_result = *req_opt;
-        // If there was a parsing error, respond with the appropriate status code
         if (!req_result.has_value()) {
             auto res =
                 Response::from_status(socket, parse_error_to_status_code(req_result.error()));
@@ -42,7 +72,6 @@ awaitable<void> handle_conn(tcp::socket socket, sp<Router> router, const ServerC
             co_return;
         }
 
-        // Successfully parsed request, handle it
         try {
             Response res{ socket };
             auto req = req_result.value();
