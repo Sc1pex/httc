@@ -92,6 +92,10 @@ URIMatch URI::match(const URI& other) const {
             return URIMatch::WILD_MATCH;
         }
         if (path_a != path_b) {
+            if (path_a.length() == 0 || path_b.length() == 0) {
+                return URIMatch::NO_MATCH;
+            }
+
             if (path_a[0] == ':') {
                 param_match[0] = true;
             }
