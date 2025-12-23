@@ -2,6 +2,7 @@
 #include <optional>
 #include <print>
 #include <ranges>
+#include "percent_encoding.h"
 
 namespace httc {
 
@@ -33,6 +34,15 @@ std::optional<URI> URI::parse(std::string_view uri) {
     }
     paths.push_back(path.substr(start));
 
+    // Percent decode each path segment
+    for (auto& p : paths) {
+        auto decoded = percent_decode(p);
+        if (!decoded.has_value()) {
+            return std::nullopt;
+        }
+        p = *decoded;
+    }
+
     if (query_start == std::string::npos) {
         return URI{ std::move(paths), std::move(query) };
     }
@@ -62,6 +72,21 @@ std::optional<URI> URI::parse(std::string_view uri) {
         } else {
             query.emplace_back(query_str.substr(start), "");
         }
+    }
+
+    // Percent decode each query key and value
+    for (auto& [key, value] : query) {
+        auto decoded_key = percent_decode(key);
+        if (!decoded_key.has_value()) {
+            return std::nullopt;
+        }
+        key = *decoded_key;
+
+        auto decoded_value = percent_decode(value);
+        if (!decoded_value.has_value()) {
+            return std::nullopt;
+        }
+        value = *decoded_value;
     }
 
     return URI{ std::move(paths), std::move(query) };

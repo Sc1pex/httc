@@ -454,3 +454,37 @@ TEST_CASE("Multiple requests") {
     REQUIRE(content_length2.value() == "13");
     REQUIRE(req2.body == "Hello, World!");
 }
+
+TEST_CASE("URI with encoded reserved characters") {
+    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE };
+
+    // /search?q=hello%26world&key=val%3Due
+    // Should be parsed as:
+    // path: /search
+    // query: q = hello&world
+    // query: key = val=ue
+    std::string_view message = "GET /search?q=hello%26world&key=val%3Due HTTP/1.1\r\n"
+                               "Host: example.com\r\n"
+                               "\r\n";
+
+    auto result = parser.feed_data(message.data(), message.size());
+    REQUIRE(result.has_value());
+    REQUIRE(result->has_value());
+    const auto& req = result->value();
+    
+    // Check that we got the expected query parameters
+    auto q = req.uri.query_param("q");
+    REQUIRE(q.has_value());
+    // This assertion will fail if the parser decodes before splitting
+    // If it decodes first, it sees "q=hello&world", splitting at '&'
+    CHECK(q.value() == "hello&world");
+
+    auto key = req.uri.query_param("key");
+    REQUIRE(key.has_value());
+    CHECK(key.value() == "val=ue");
+
+    // Ensure we didn't accidentally split 'world' into its own parameter
+    // (which would happen if %26 was decoded to & early)
+    auto world = req.uri.query_param("world");
+    CHECK(!world.has_value());
+}

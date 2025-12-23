@@ -3,7 +3,6 @@
 #include <expected>
 #include <optional>
 #include <string_view>
-#include "percent_encoding.h"
 
 namespace httc {
 
@@ -112,11 +111,7 @@ std::optional<RequestParserError> RequestParser::parse_request_line() {
     }
 
     auto uri_str = request_line.substr(uri_start, uri_end - uri_start);
-    auto decoded_uri_str = percent_decode(uri_str);
-    if (!decoded_uri_str.has_value()) {
-        return RequestParserError::INVALID_REQUEST_LINE;
-    }
-    auto uri = URI::parse(*decoded_uri_str);
+    auto uri = URI::parse(uri_str);
     if (!uri.has_value()) {
         return RequestParserError::INVALID_REQUEST_LINE;
     }
