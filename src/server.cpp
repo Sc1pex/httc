@@ -58,31 +58,30 @@ awaitable<void> handle_conn(tcp::socket socket, sp<Router> router, const ServerC
         }
 
         auto req_opt = req_parser.feed_data(buf.data(), n);
-        if (!req_opt.has_value()) {
-            // Incomplete request, wait for more data
-            continue;
-        }
+        while (req_opt.has_value()) {
+            auto req_result = *req_opt;
+            if (!req_result.has_value()) {
+                auto res =
+                    Response::from_status(socket, parse_error_to_status_code(req_result.error()));
+                co_await Response::send(std::move(res));
+                socket.close();
+                co_return;
+            }
 
-        auto req_result = *req_opt;
-        if (!req_result.has_value()) {
-            auto res =
-                Response::from_status(socket, parse_error_to_status_code(req_result.error()));
-            co_await Response::send(std::move(res));
-            socket.close();
-            co_return;
-        }
+            try {
+                Response res{ socket };
+                auto req = req_result.value();
+                co_await router->handle(req, res);
+                co_await Response::send(std::move(res));
+            } catch (std::exception& e) {
+                std::println("Error handling request: {}", e.what());
+                auto res = Response::from_status(socket, StatusCode::INTERNAL_SERVER_ERROR);
+                Response::send_blocking(std::move(res));
+                socket.close();
+                co_return;
+            }
 
-        try {
-            Response res{ socket };
-            auto req = req_result.value();
-            co_await router->handle(req, res);
-            co_await Response::send(std::move(res));
-        } catch (std::exception& e) {
-            std::println("Error handling request: {}", e.what());
-            auto res = Response::from_status(socket, StatusCode::INTERNAL_SERVER_ERROR);
-            Response::send_blocking(std::move(res));
-            socket.close();
-            co_return;
+            req_opt = req_parser.feed_data("", 0);
         }
     }
 }
@@ -109,5 +108,4 @@ void bind_and_listen(
 
     asio::co_spawn(io_ctx, listen(std::move(acceptor), router, config), asio::detached);
 }
-
 }
