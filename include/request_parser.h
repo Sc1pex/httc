@@ -31,6 +31,7 @@ private:
         PARSE_HEADERS,
         PARSE_BODY_CHUNKED_SIZE,
         PARSE_BODY_CHUNKED_DATA,
+        PARSE_CHUNKED_TRAILERS,
         PARSE_BODY_CONTENT_LENGTH,
         PARSE_COMPLETE,
     };
@@ -41,10 +42,11 @@ private:
     std::optional<RequestParserError> parse_body_content_length();
     std::optional<RequestParserError> parse_body_chunked_size();
     std::optional<RequestParserError> parse_body_chunked_data();
+    std::optional<RequestParserError> parse_chunked_trailers();
 
     void reset();
 
-    std::optional<RequestParserError> parse_header(const std::string& header_line);
+    std::optional<RequestParserError> parse_header(const std::string& header_line, Headers& target);
 
 private:
     Request m_req;

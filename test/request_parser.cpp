@@ -329,6 +329,35 @@ TEST_CASE("Parse chunked bodies") {
         REQUIRE(!result->has_value());
         REQUIRE(result->error() == httc::RequestParserError::INVALID_CHUNK_ENCODING);
     }
+
+    SECTION("With trailers") {
+        std::string_view message = "POST /submit HTTP/1.1\r\n"
+                                   "Host: example.com\r\n"
+                                   "Transfer-Encoding: chunked\r\n"
+                                   "\r\n"
+                                   "5\r\n"
+                                   "Hello\r\n"
+                                   "7\r\n"
+                                   ", World\r\n"
+                                   "0\r\n"
+                                   "Trailer-Header: TrailerValue\r\n"
+                                   "Other-Trailer: AnotherValue\r\n"
+                                   "\r\n";
+
+        auto result = parser.feed_data(message.data(), message.size());
+        REQUIRE(result.has_value());
+        REQUIRE(result->has_value());
+
+        const auto& req = result->value();
+        auto trailers = req.trailers;
+
+        auto trailer_header = trailers.get("Trailer-Header");
+        REQUIRE(trailer_header.has_value());
+        REQUIRE(trailer_header.value() == "TrailerValue");
+        auto other_trailer = trailers.get("Other-Trailer");
+        REQUIRE(other_trailer.has_value());
+        REQUIRE(other_trailer.value() == "AnotherValue");
+    }
 }
 
 TEST_CASE("Parse in multiple chunks") {

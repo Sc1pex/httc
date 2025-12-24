@@ -4,6 +4,7 @@
 #include <optional>
 #include <string_view>
 #include "common.h"
+#include "headers.h"
 
 namespace httc {
 
@@ -56,6 +57,13 @@ std::optional<RequestParser::ParseResult>
             }
         } else if (m_state == State::PARSE_BODY_CHUNKED_DATA) {
             auto result = parse_body_chunked_data();
+            if (result.has_value()) {
+                reset();
+                m_buffer = {};
+                return std::unexpected(result.value());
+            }
+        } else if (m_state == State::PARSE_CHUNKED_TRAILERS) {
+            auto result = parse_chunked_trailers();
             if (result.has_value()) {
                 reset();
                 m_buffer = {};
@@ -149,7 +157,7 @@ std::optional<RequestParserError> RequestParser::parse_headers() {
             return prepare_parse_body();
         }
 
-        auto result = parse_header(header_line);
+        auto result = parse_header(header_line, m_req.headers);
         if (result.has_value()) {
             return result;
         }
@@ -158,7 +166,34 @@ std::optional<RequestParserError> RequestParser::parse_headers() {
     return std::nullopt;
 }
 
-std::optional<RequestParserError> RequestParser::parse_header(const std::string& header_line) {
+std::optional<RequestParserError> RequestParser::parse_chunked_trailers() {
+    while (!m_buffer.empty()) {
+        auto crlf = m_buffer.find("\r\n");
+        if (crlf == std::string::npos) {
+            // Not enough data yet
+            return std::nullopt;
+        }
+
+        std::string header_line = m_buffer.substr(0, crlf);
+        m_buffer.erase(0, crlf + 2);
+
+        // End of trailers
+        if (header_line.empty()) {
+            m_state = State::PARSE_COMPLETE;
+            return std::nullopt;
+        }
+
+        auto result = parse_header(header_line, m_req.trailers);
+        if (result.has_value()) {
+            return result;
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::optional<RequestParserError>
+    RequestParser::parse_header(const std::string& header_line, Headers& target) {
     auto colon_pos = header_line.find(':');
     if (colon_pos == std::string::npos) {
         return RequestParserError::INVALID_HEADER;
@@ -182,7 +217,7 @@ std::optional<RequestParserError> RequestParser::parse_header(const std::string&
     }
 
     try {
-        m_req.headers.set(std::move(name), std::move(value));
+        target.set(std::move(name), std::move(value));
     } catch (const std::invalid_argument& e) {
         return RequestParserError::INVALID_HEADER;
     }
@@ -275,7 +310,7 @@ std::optional<RequestParserError> RequestParser::parse_body_chunked_data() {
 
     // Last chunk
     if (m_chunk_bytes_remaining == 0) {
-        m_state = State::PARSE_COMPLETE;
+        m_state = State::PARSE_CHUNKED_TRAILERS;
         return std::nullopt;
     }
 
