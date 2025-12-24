@@ -102,6 +102,8 @@ public:
         return m_map.cend();
     }
 
+    bool valid_header_value(std::string_view str);
+
 private:
     std::unordered_map<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveSearch> m_map;
     friend struct std::formatter<Headers>;

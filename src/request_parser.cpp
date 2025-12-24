@@ -3,6 +3,7 @@
 #include <expected>
 #include <optional>
 #include <string_view>
+#include "common.h"
 
 namespace httc {
 
@@ -180,11 +181,11 @@ std::optional<RequestParserError> RequestParser::parse_header(const std::string&
         value.pop_back();
     }
 
-    if (!valid_header_value(value)) {
+    try {
+        m_req.headers.set(std::move(name), std::move(value));
+    } catch (const std::invalid_argument& e) {
         return RequestParserError::INVALID_HEADER;
     }
-
-    m_req.headers.set(std::move(name), std::move(value));
     return std::nullopt;
 }
 
@@ -295,33 +296,6 @@ std::optional<RequestParserError> RequestParser::parse_body_chunked_data() {
 void RequestParser::reset() {
     m_req = Request();
     m_state = State::PARSE_REQUEST_LINE;
-}
-
-// https://www.rfc-editor.org/rfc/rfc9110#name-tokens
-bool RequestParser::valid_token(const std::string& str) {
-    if (str.empty()) {
-        return false;
-    }
-    for (char c : str) {
-        if (c == '!' || c == '#' || c == '$' || c == '%' || c == '&' || c == '\'' || c == '*'
-            || c == '+' || c == '-' || c == '.' || (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z')
-            || c == '^' || c == '_' || c == '`' || (c >= 'a' && c <= 'z') || c == '|' || c == '~') {
-            continue;
-        }
-        return false;
-    }
-    return true;
-}
-
-bool RequestParser::valid_header_value(const std::string& str) {
-    for (char c : str) {
-        unsigned char uc = static_cast<unsigned char>(c);
-        if (uc == 0x09 || (uc >= 0x20 && uc <= 0x7E) || (uc >= 0x80 && uc <= 0xFF)) {
-            continue;
-        }
-        return false;
-    }
-    return true;
 }
 
 StatusCode parse_error_to_status_code(RequestParserError error) {

@@ -46,9 +46,6 @@ private:
 
     std::optional<RequestParserError> parse_header(const std::string& header_line);
 
-    bool valid_token(const std::string& str);
-    bool valid_header_value(const std::string& str);
-
 private:
     Request m_req;
     std::string m_buffer;

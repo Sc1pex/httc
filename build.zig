@@ -44,6 +44,7 @@ fn build_httc_lib(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std
     httc_lib.addCSourceFiles(.{
         .root = b.path("src"),
         .files = &.{
+            "common.cpp",
             "headers.cpp",
             "percent_encoding.cpp",
             "request.cpp",
