@@ -9,15 +9,19 @@ namespace httc {
 RequestParser::RequestParser(std::size_t max_headers_size, std::size_t max_body_size)
 : m_max_headers_size(max_headers_size), m_max_body_size(max_body_size) {
     m_state = State::PARSE_REQUEST_LINE;
+    m_current_headers_size = 0;
 }
 
 std::optional<RequestParser::ParseResult>
     RequestParser::feed_data(const char* data, std::size_t length) {
-    if ((m_state == State::PARSE_HEADERS || m_state == State::PARSE_REQUEST_LINE)
-        && m_buffer.size() + length > m_max_headers_size) {
-        reset();
-        m_buffer = {};
-        return std::unexpected(RequestParserError::HEADER_TOO_LARGE);
+    if (m_state == State::PARSE_HEADERS || m_state == State::PARSE_REQUEST_LINE) {
+        m_current_headers_size += length;
+
+        if (m_current_headers_size > m_max_headers_size) {
+            reset();
+            m_buffer = {};
+            return std::unexpected(RequestParserError::HEADER_TOO_LARGE);
+        }
     }
 
     m_buffer.append(data, length);

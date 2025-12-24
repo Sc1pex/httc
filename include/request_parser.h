@@ -57,6 +57,8 @@ private:
     std::size_t m_chunk_bytes_remaining;
 
     std::size_t m_max_headers_size;
+    // Current headers size, including request line and CRLFs
+    std::size_t m_current_headers_size;
     std::size_t m_max_body_size;
 };
 

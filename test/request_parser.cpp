@@ -471,7 +471,7 @@ TEST_CASE("URI with encoded reserved characters") {
     REQUIRE(result.has_value());
     REQUIRE(result->has_value());
     const auto& req = result->value();
-    
+
     // Check that we got the expected query parameters
     auto q = req.uri.query_param("q");
     REQUIRE(q.has_value());
@@ -487,4 +487,27 @@ TEST_CASE("URI with encoded reserved characters") {
     // (which would happen if %26 was decoded to & early)
     auto world = req.uri.query_param("world");
     CHECK(!world.has_value());
+}
+
+TEST_CASE("Many small headers exceeding limit") {
+    httc::RequestParser parser{ 1024, MAX_BODY_SIZE };
+
+    std::string request_start = "GET / HTTP/1.1\r\n";
+    parser.feed_data(request_start.data(), request_start.size());
+
+    for (int i = 0; i < 200; ++i) {
+        std::string header = std::format("H{}: v\r\n", i);
+        auto result = parser.feed_data(header.data(), header.size());
+
+        if (result.has_value() && !result->has_value()
+            && result->error() == httc::RequestParserError::HEADER_TOO_LARGE) {
+            SUCCEED("Correctly detected header overflow");
+            return;
+        }
+    }
+
+    std::string request_end = "\r\n";
+    auto result = parser.feed_data(request_end.data(), request_end.size());
+
+    FAIL("Parser accepted headers exceeding the configured maximum size");
 }
