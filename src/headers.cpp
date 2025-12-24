@@ -42,15 +42,4 @@ void Headers::add(std::string_view header, std::string_view value) {
     }
 }
 
-bool Headers::valid_header_value(std::string_view str) {
-    for (char c : str) {
-        unsigned char uc = static_cast<unsigned char>(c);
-        if (uc == 0x09 || (uc >= 0x20 && uc <= 0x7E) || (uc >= 0x80 && uc <= 0xFF)) {
-            continue;
-        }
-        return false;
-    }
-    return true;
-}
-
 }

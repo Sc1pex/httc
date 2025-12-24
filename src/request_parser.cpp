@@ -216,6 +216,14 @@ std::optional<RequestParserError>
         value.pop_back();
     }
 
+    if (name == "Cookie") {
+        if (!valid_header_value(value)) {
+            return RequestParserError::INVALID_HEADER;
+        }
+
+        m_req.cookies.push_back(value);
+    }
+
     try {
         target.set(std::move(name), std::move(value));
     } catch (const std::invalid_argument& e) {

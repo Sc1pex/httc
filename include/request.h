@@ -18,8 +18,10 @@ public:
     std::string method;
     URI uri;
     std::string body;
+
     Headers headers;
     Headers trailers;
+    std::vector<std::string> cookies;
 
     std::string wildcard_path;
     std::unordered_map<std::string, std::string> path_params;

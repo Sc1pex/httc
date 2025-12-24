@@ -540,3 +540,37 @@ TEST_CASE("Many small headers exceeding limit") {
 
     FAIL("Parser accepted headers exceeding the configured maximum size");
 }
+
+TEST_CASE("Cookies") {
+    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE };
+
+    SECTION("Single Cookie header") {
+        std::string_view message = "GET / HTTP/1.1\r\n"
+                                   "Host: example.com\r\n"
+                                   "Cookie: sessionId=abc123\r\n"
+                                   "\r\n";
+        auto result = parser.feed_data(message.data(), message.size());
+        REQUIRE(result.has_value());
+        REQUIRE(result->has_value());
+        const auto& req = result->value();
+        auto& cookies = req.cookies;
+        REQUIRE(cookies[0] == "sessionId=abc123");
+        REQUIRE(cookies.size() == 1);
+    }
+
+    SECTION("Multiple Cookie headers") {
+        std::string_view message = "GET / HTTP/1.1\r\n"
+                                   "Host: example.com\r\n"
+                                   "Cookie: sessionId=abc123\r\n"
+                                   "Cookie: theme=light\r\n"
+                                   "\r\n";
+        auto result = parser.feed_data(message.data(), message.size());
+        REQUIRE(result.has_value());
+        REQUIRE(result->has_value());
+        const auto& req = result->value();
+        auto& cookies = req.cookies;
+        REQUIRE(cookies.size() == 2);
+        REQUIRE(cookies[0] == "sessionId=abc123");
+        REQUIRE(cookies[1] == "theme=light");
+    }
+}
