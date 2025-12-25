@@ -18,6 +18,8 @@ public:
     Response(asio::ip::tcp::socket& sock, bool is_head_response = false);
     static Response from_status(asio::ip::tcp::socket& sock, StatusCode status);
 
+    void add_cookie(std::string cookie);
+
     // Blocking versions
     void begin_stream();
     void stream_chunk(std::string_view chunk);
@@ -42,6 +44,8 @@ private:
     std::string m_body;
     bool m_head;
     State m_state;
+
+    std::vector<std::string> m_cookies;
 };
 
 }

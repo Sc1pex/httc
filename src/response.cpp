@@ -126,6 +126,9 @@ awaitable<void> Response::send(Response&& res) {
     for (const auto& [key, value] : res.headers) {
         co_await async_write_fmt(res.m_sock, "{}: {}\r\n", key, value);
     }
+    for (const auto& cookie : res.m_cookies) {
+        co_await async_write_fmt(res.m_sock, "Set-Cookie: {}\r\n", cookie);
+    }
     co_await async_write_fmt(res.m_sock, "\r\n");
     if (!res.m_body.empty()) {
         co_await async_write_fmt(res.m_sock, "{}", res.m_body);
@@ -158,6 +161,10 @@ void Response::set_body(std::string_view body) {
     }
     headers.set("Content-Length", std::to_string(body.size()));
     m_body = body;
+}
+
+void Response::add_cookie(std::string cookie) {
+    m_cookies.push_back(std::move(cookie));
 }
 
 }
