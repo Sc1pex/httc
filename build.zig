@@ -22,6 +22,16 @@ pub fn build(b: *std.Build) void {
         &.{"simple.cpp"},
     );
 
+    add_example(
+        b,
+        target,
+        optimize,
+        httc_lib,
+        cdb_step,
+        "cookies",
+        &.{"cookies.cpp"},
+    );
+
     b.getInstallStep().dependOn(cdb_step);
 }
 
