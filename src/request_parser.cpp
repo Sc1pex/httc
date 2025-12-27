@@ -20,13 +20,13 @@ std::optional<RequestParser::ParseResult>
         m_current_headers_size += length;
 
         if (m_current_headers_size > m_max_headers_size) {
-            reset();
-            m_buffer = {};
+            reset_err();
             return std::unexpected(RequestParserError::HEADER_TOO_LARGE);
         }
     }
 
     m_buffer.append(data, length);
+    m_view = std::string_view(m_buffer.data() + m_view_start, m_buffer.size() - m_view_start);
 
     while (true) {
         auto last_state = m_state;
@@ -35,31 +35,25 @@ std::optional<RequestParser::ParseResult>
         if (m_state == State::PARSE_REQUEST_LINE) {
             auto result = parse_request_line();
             if (result.has_value()) {
-                reset();
-                // Since the request could not be parsed, any data left in the buffer
-                // cannot be trusted to be valid
-                m_buffer = {};
+                reset_err();
                 return std::unexpected(result.value());
             }
         } else if (m_state == State::PARSE_HEADERS) {
             auto result = parse_headers();
             if (result.has_value()) {
-                reset();
-                m_buffer = {};
+                reset_err();
                 return std::unexpected(result.value());
             }
         } else if (m_state == State::PARSE_BODY_CHUNKED_SIZE) {
             auto result = parse_body_chunked_size();
             if (result.has_value()) {
-                reset();
-                m_buffer = {};
+                reset_err();
                 return std::unexpected(result.value());
             }
         } else if (m_state == State::PARSE_BODY_CHUNKED_DATA) {
             auto result = parse_body_chunked_data();
             if (result.has_value()) {
-                reset();
-                m_buffer = {};
+                reset_err();
                 return std::unexpected(result.value());
             }
         } else if (m_state == State::PARSE_CHUNKED_TRAILERS) {
@@ -72,11 +66,16 @@ std::optional<RequestParser::ParseResult>
         } else if (m_state == State::PARSE_BODY_CONTENT_LENGTH) {
             auto result = parse_body_content_length();
             if (result.has_value()) {
-                reset();
-                m_buffer = {};
+                reset_err();
                 return std::unexpected(result.value());
             }
         } else if (m_state == State::PARSE_COMPLETE) {
+            // Create new buffer with remaining data
+            std::string remaining_data = std::string(m_view.data(), m_view.size());
+            m_buffer = std::move(remaining_data);
+            m_view_start = 0;
+            m_view = std::string_view(m_buffer.data(), m_buffer.size());
+
             auto req = m_req;
             reset();
             completed = true;
@@ -94,19 +93,17 @@ std::optional<RequestParserError> RequestParser::parse_request_line() {
     // https://www.rfc-editor.org/rfc/rfc9112.html#section-2.2-6
     // A server SHOULD ignore at least one empty line (CRLF)
     // received prior to the request-line
-    while (m_buffer.starts_with("\r\n")) {
-        m_buffer.erase(0, 2);
+    while (m_view.starts_with("\r\n")) {
+        advance_view(2);
     }
 
-    auto crlf = m_buffer.find("\r\n");
+    auto crlf = m_view.find("\r\n");
     if (crlf == std::string::npos) {
         // Not enough data yet
         return std::nullopt;
     }
 
-    std::string request_line = m_buffer.substr(0, crlf);
-    // Remove the request line and CRLF from the buffer
-    m_buffer.erase(0, crlf + 2);
+    std::string_view request_line = m_view.substr(0, crlf);
 
     auto method_end = request_line.find(' ');
     if (method_end == std::string::npos) {
@@ -136,28 +133,32 @@ std::optional<RequestParserError> RequestParser::parse_request_line() {
         return RequestParserError::INVALID_REQUEST_LINE;
     }
 
+    // Remove the request line and CRLF from the buffer
+    advance_view(crlf + 2);
     m_state = State::PARSE_HEADERS;
 
     return std::nullopt;
 }
 
 std::optional<RequestParserError> RequestParser::parse_headers() {
-    while (!m_buffer.empty()) {
-        auto crlf = m_buffer.find("\r\n");
+    while (!m_view.empty()) {
+        auto crlf = m_view.find("\r\n");
         if (crlf == std::string::npos) {
             // Not enough data yet
             return std::nullopt;
         }
 
-        std::string header_line = m_buffer.substr(0, crlf);
-        m_buffer.erase(0, crlf + 2);
+        std::string_view header_line = m_view.substr(0, crlf);
 
         // End of headers
         if (header_line.empty()) {
+            advance_view(crlf + 2);
             return prepare_parse_body();
         }
 
         auto result = parse_header(header_line, m_req.headers);
+        advance_view(crlf + 2);
+
         if (result.has_value()) {
             return result;
         }
@@ -167,23 +168,25 @@ std::optional<RequestParserError> RequestParser::parse_headers() {
 }
 
 std::optional<RequestParserError> RequestParser::parse_chunked_trailers() {
-    while (!m_buffer.empty()) {
-        auto crlf = m_buffer.find("\r\n");
+    while (!m_view.empty()) {
+        auto crlf = m_view.find("\r\n");
         if (crlf == std::string::npos) {
             // Not enough data yet
             return std::nullopt;
         }
 
-        std::string header_line = m_buffer.substr(0, crlf);
-        m_buffer.erase(0, crlf + 2);
+        std::string_view header_line = m_view.substr(0, crlf);
 
         // End of trailers
         if (header_line.empty()) {
+            advance_view(crlf + 2);
             m_state = State::PARSE_COMPLETE;
             return std::nullopt;
         }
 
         auto result = parse_header(header_line, m_req.trailers);
+        advance_view(crlf + 2);
+
         if (result.has_value()) {
             return result;
         }
@@ -193,12 +196,12 @@ std::optional<RequestParserError> RequestParser::parse_chunked_trailers() {
 }
 
 std::optional<RequestParserError>
-    RequestParser::parse_header(const std::string& header_line, Headers& target) {
+    RequestParser::parse_header(std::string_view header_line, Headers& target) {
     auto colon_pos = header_line.find(':');
     if (colon_pos == std::string::npos) {
         return RequestParserError::INVALID_HEADER;
     }
-    std::string name = header_line.substr(0, colon_pos);
+    std::string_view name = header_line.substr(0, colon_pos);
     if (!valid_token(name)) {
         return RequestParserError::INVALID_HEADER;
     }
@@ -210,10 +213,10 @@ std::optional<RequestParserError>
         value_start++;
     }
 
-    std::string value = header_line.substr(value_start);
+    std::string_view value = header_line.substr(value_start);
     // Trim trailing spaces
     while (!value.empty() && (value.back() == ' ' || value.back() == '\t')) {
-        value.pop_back();
+        value.remove_suffix(1);
     }
 
     if (name == "Cookie") {
@@ -221,7 +224,7 @@ std::optional<RequestParserError>
             return RequestParserError::INVALID_HEADER;
         }
 
-        m_req.cookies.push_back(value);
+        m_req.cookies.push_back(std::string(value));
     }
 
     try {
@@ -274,26 +277,25 @@ std::optional<RequestParserError> RequestParser::parse_body_content_length() {
         return RequestParserError::CONTENT_TOO_LARGE;
     }
 
-    if (m_buffer.size() < content_length) {
+    if (m_view.size() < content_length) {
         // Not enough data yet
         return std::nullopt;
     }
 
-    m_req.body = m_buffer.substr(0, content_length);
-    m_buffer.erase(0, content_length);
+    m_req.body = m_view.substr(0, content_length);
+    advance_view(content_length);
     m_state = State::PARSE_COMPLETE;
     return std::nullopt;
 }
 
 std::optional<RequestParserError> RequestParser::parse_body_chunked_size() {
-    auto crlf = m_buffer.find("\r\n");
+    auto crlf = m_view.find("\r\n");
     if (crlf == std::string::npos) {
         // Not enough data yet
         return std::nullopt;
     }
 
-    std::string size_line = m_buffer.substr(0, crlf);
-    m_buffer.erase(0, crlf + 2);
+    std::string_view size_line = m_view.substr(0, crlf);
     std::size_t chunk_size = 0;
     auto res =
         std::from_chars(size_line.data(), size_line.data() + size_line.size(), chunk_size, 16);
@@ -306,12 +308,13 @@ std::optional<RequestParserError> RequestParser::parse_body_chunked_size() {
 
     m_chunk_bytes_remaining = chunk_size;
     m_state = State::PARSE_BODY_CHUNKED_DATA;
+    advance_view(crlf + 2);
 
     return std::nullopt;
 }
 
 std::optional<RequestParserError> RequestParser::parse_body_chunked_data() {
-    if (m_buffer.size() < m_chunk_bytes_remaining + 2) {
+    if (m_view.size() < m_chunk_bytes_remaining + 2) {
         // Not enough data yet
         return std::nullopt;
     }
@@ -322,15 +325,15 @@ std::optional<RequestParserError> RequestParser::parse_body_chunked_data() {
         return std::nullopt;
     }
 
-    m_req.body.append(m_buffer.substr(0, m_chunk_bytes_remaining));
-    m_buffer.erase(0, m_chunk_bytes_remaining);
+    m_req.body.append(m_view.substr(0, m_chunk_bytes_remaining));
+    advance_view(m_chunk_bytes_remaining);
     m_chunk_bytes_remaining = 0;
 
     // Expecting CRLF after chunk data
-    if (!m_buffer.starts_with("\r\n")) {
+    if (!m_view.starts_with("\r\n")) {
         return RequestParserError::INVALID_CHUNK_ENCODING;
     }
-    m_buffer.erase(0, 2);
+    advance_view(2);
 
     m_state = State::PARSE_BODY_CHUNKED_SIZE;
     return std::nullopt;
@@ -340,6 +343,18 @@ void RequestParser::reset() {
     m_req = Request();
     m_state = State::PARSE_REQUEST_LINE;
     m_current_headers_size = 0;
+}
+
+void RequestParser::reset_err() {
+    reset();
+    m_buffer = {};
+    m_view = {};
+    m_view_start = 0;
+}
+
+void RequestParser::advance_view(std::size_t n) {
+    m_view_start += n;
+    m_view = std::string_view(m_buffer.data() + m_view_start, m_buffer.size() - m_view_start);
 }
 
 StatusCode parse_error_to_status_code(RequestParserError error) {
@@ -352,4 +367,5 @@ StatusCode parse_error_to_status_code(RequestParserError error) {
 
     return StatusCode::BAD_REQUEST;
 }
+
 }

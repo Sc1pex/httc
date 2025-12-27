@@ -45,13 +45,20 @@ private:
     std::optional<RequestParserError> parse_chunked_trailers();
 
     void reset();
+    void reset_err();
 
-    std::optional<RequestParserError> parse_header(const std::string& header_line, Headers& target);
+    void advance_view(std::size_t n);
+
+    std::optional<RequestParserError> parse_header(std::string_view header_line, Headers& target);
 
 private:
     Request m_req;
-    std::string m_buffer;
     State m_state;
+
+    std::string m_buffer;
+
+    std::string_view m_view;
+    std::size_t m_view_start = 0;
 
     std::size_t m_chunk_bytes_remaining;
 
