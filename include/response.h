@@ -18,23 +18,15 @@ public:
     Response(asio::ip::tcp::socket& sock, bool is_head_response = false);
     static Response from_status(asio::ip::tcp::socket& sock, StatusCode status);
 
-    void add_cookie(std::string cookie);
-
-    // Blocking versions
-    void begin_stream();
-    void stream_chunk(std::string_view chunk);
-    void end_stream();
-
-    // Async versions
-    asio::awaitable<void> async_begin_stream();
-    asio::awaitable<void> async_stream_chunk(std::string_view chunk);
-    asio::awaitable<void> async_end_stream();
+    asio::awaitable<void> begin_stream();
+    asio::awaitable<void> stream_chunk(std::string_view chunk);
+    asio::awaitable<void> end_stream();
 
     void set_body(std::string_view body);
 
     static asio::awaitable<void> send(Response&& res);
-    // Needed because co_await is not avabile in catch
-    static void send_blocking(Response&& res);
+
+    void add_cookie(std::string cookie);
 
     StatusCode status;
     Headers headers;

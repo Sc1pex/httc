@@ -5,10 +5,11 @@
 
 int main() {
     auto router = std::make_shared<httc::Router>();
-    router->route("/ping", [](const httc::Request&, httc::Response& res) {
+    router->route("/ping", [](const httc::Request&, httc::Response& res) -> asio::awaitable<void> {
         res.status = httc::StatusCode::OK;
         res.headers.set("Content-Type", "text/plain");
         res.set_body("pong");
+        co_return;
     });
 
     asio::io_context io_ctx;

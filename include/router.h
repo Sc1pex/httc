@@ -14,43 +14,27 @@
 namespace httc {
 
 template<typename T>
-concept IsSyncHandler = requires(T t, const Request& req, Response& res) {
-    { t(req, res) } -> std::same_as<void>;
-};
-template<typename T>
-concept IsAsyncHandler = requires(T t, const Request& req, Response& res) {
+concept IsHandler = requires(T t, const Request& req, Response& res) {
     { t(req, res) } -> std::same_as<asio::awaitable<void>>;
 };
 
 template<typename T>
-concept IsCallableHandler = IsSyncHandler<T> || IsAsyncHandler<T>;
-
-template<typename T>
 concept HasAllowedMethods = requires(T t) {
     { t.getAllowedMethods() } -> std::convertible_to<std::vector<std::string>>;
-} && IsCallableHandler<T>;
+} && IsHandler<T>;
 
 using HandlerFn = std::function<asio::awaitable<void>(const Request& req, Response& res)>;
 using MiddlewareFn =
     std::function<asio::awaitable<void>(Request& req, Response& res, HandlerFn next)>;
 
-template<IsCallableHandler T>
+template<IsHandler T>
 HandlerFn make_handler(T&& handler) {
-    if constexpr (IsSyncHandler<std::decay_t<T>>) {
-        HandlerFn fn = [handler = std::forward<T>(handler)](
-                           const Request& req, Response& res
-                       ) mutable -> asio::awaitable<void> {
-            co_return handler(req, res);
-        };
-        return fn;
-    } else {
-        return std::forward<T>(handler);
-    }
+    return std::forward<T>(handler);
 }
 
 class Router {
 public:
-    template<IsCallableHandler T>
+    template<IsHandler T>
     Router& route(std::string_view path, T&& handler) {
         add_route(make_handler(std::forward<T>(handler)), path, std::nullopt);
         return *this;
@@ -100,7 +84,7 @@ struct StringLiteral {
 template<StringLiteral... Methods>
 class MethodWrapper {
 public:
-    template<IsCallableHandler T>
+    template<IsHandler T>
     MethodWrapper(T&& f) : m_handler(make_handler(std::forward<T>(f))) {
         m_methods = { std::string(Methods.value)... };
     }

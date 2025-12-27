@@ -68,15 +68,20 @@ awaitable<void> handle_conn(tcp::socket socket, sp<Router> router, const ServerC
                 co_return;
             }
 
+            bool success = false;
             try {
                 Response res{ socket };
                 auto req = req_result.value();
                 co_await router->handle(req, res);
                 co_await Response::send(std::move(res));
+                success = true;
             } catch (std::exception& e) {
                 std::println("Error handling request: {}", e.what());
+            }
+
+            if (!success) {
                 auto res = Response::from_status(socket, StatusCode::INTERNAL_SERVER_ERROR);
-                Response::send_blocking(std::move(res));
+                co_await Response::send(std::move(res));
                 socket.close();
                 co_return;
             }
