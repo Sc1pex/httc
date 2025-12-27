@@ -42,4 +42,8 @@ void Headers::add(std::string_view header, std::string_view value) {
     }
 }
 
+std::size_t Headers::size() const {
+    return m_map.size();
+}
+
 }

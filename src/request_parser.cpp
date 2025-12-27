@@ -339,6 +339,7 @@ std::optional<RequestParserError> RequestParser::parse_body_chunked_data() {
 void RequestParser::reset() {
     m_req = Request();
     m_state = State::PARSE_REQUEST_LINE;
+    m_current_headers_size = 0;
 }
 
 StatusCode parse_error_to_status_code(RequestParserError error) {

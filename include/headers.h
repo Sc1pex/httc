@@ -14,6 +14,8 @@ public:
     bool unset(std::string_view header);
     void add(std::string_view header, std::string_view value);
 
+    std::size_t size() const;
+
     std::optional<std::string_view> get(std::string_view header) const;
 
 private:
