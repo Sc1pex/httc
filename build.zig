@@ -32,6 +32,16 @@ pub fn build(b: *std.Build) void {
         &.{"cookies.cpp"},
     );
 
+    add_benchmark(
+        b,
+        target,
+        optimize,
+        httc_lib,
+        cdb_step,
+        "parser",
+        &.{"parser_bench.cpp"},
+    );
+
     b.getInstallStep().dependOn(cdb_step);
 }
 
@@ -160,6 +170,42 @@ fn add_example(
     run_step.dependOn(&run_example.step);
 
     cdb_step.dependOn(&example.step);
+}
+
+fn add_benchmark(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    httc_lib: *std.Build.Step.Compile,
+    cdb_step: *std.Build.Step,
+    benchmark_name: []const u8,
+    files: []const []const u8,
+) void {
+    const name = b.fmt("{s}_bench", .{benchmark_name});
+
+    const bench = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+            .link_libcpp = true,
+        }),
+    });
+    bench.addCSourceFiles(.{
+        .root = b.path("benchmarks"),
+        .files = files,
+        .flags = CXX_FLAGS,
+    });
+    bench.linkLibrary(httc_lib);
+
+    b.installArtifact(bench);
+
+    const description = b.fmt("Run {s} benchmark", .{benchmark_name});
+    const run_step = b.step(name, description);
+    const run_bench = b.addRunArtifact(bench);
+    run_step.dependOn(&run_bench.step);
+
+    cdb_step.dependOn(&bench.step);
 }
 
 // Taken from https://zacoons.com/blog/2025-02-16-how-to-get-clang-lsp-working-with-zig/
