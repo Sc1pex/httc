@@ -27,6 +27,48 @@ std::string generate_request(std::string_view size) {
     return base;
 }
 
+class StringReader {
+public:
+    asio::awaitable<std::expected<std::string_view, httc::ReaderError>> pull() {
+        if (read) {
+            co_return std::unexpected(httc::ReaderError::CLOSED);
+        } else {
+            read = true;
+            co_return str;
+        }
+    };
+
+    void set_data(std::string data) {
+        str = data;
+        read = false;
+    }
+
+private:
+    bool read = false;
+    std::string str;
+};
+
+asio::awaitable<void> parser_benchmark(std::string_view size, int iterations) {
+    std::string request_data = generate_request(size);
+    StringReader reader;
+    RequestParser parser(1024 * 1024, 16 * 1024 * 1024, reader);
+
+    size_t total_header_len = 0;
+    for (int i = 0; i < iterations; ++i) {
+        reader.set_data(request_data);
+        auto result = co_await parser.next();
+
+        if (result.has_value() && result.value().has_value()) {
+            const auto& req = result.value().value();
+            for (const auto& [name, value] : req.headers) {
+                total_header_len += name.length() + value.length();
+            }
+        }
+    }
+
+    std::cout << total_header_len << std::endl;
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::cerr << "Usage: parser_bench <sm|lg|xl> [iterations]\n";
@@ -39,22 +81,9 @@ int main(int argc, char** argv) {
         iterations = std::stoi(argv[2]);
     }
 
-    std::string request_data = generate_request(size);
-    // Increase buffer size for XL tests
-    RequestParser parser(1024 * 1024, 16 * 1024 * 1024);
+    asio::io_context io_context;
+    asio::co_spawn(io_context, parser_benchmark(size, iterations), asio::detached);
+    io_context.run();
 
-    size_t total_header_len = 0;
-    for (int i = 0; i < iterations; ++i) {
-        auto result = parser.feed_data(request_data.data(), request_data.size());
-
-        if (result.has_value() && result.value().has_value()) {
-            const auto& req = result.value().value();
-            for (const auto& [name, value] : req.headers) {
-                total_header_len += name.length() + value.length();
-            }
-        }
-    }
-
-    std::cout << total_header_len << std::endl;
     return 0;
 }
