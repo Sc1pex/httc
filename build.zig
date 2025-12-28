@@ -132,6 +132,9 @@ fn build_tests(
 
     const test_step = b.step("test", "Run tests");
     const run_test = b.addRunArtifact(test_exe);
+    if (b.args) |args| {
+        run_test.addArgs(args);
+    }
     test_step.dependOn(&run_test.step);
 
     cdb_step.dependOn(&test_exe.step);

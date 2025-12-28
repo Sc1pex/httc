@@ -1,16 +1,83 @@
+#include <httc/reader.h>
 #include <httc/request_parser.h>
 #include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include "async_test.h"
 
 const std::size_t MAX_HEADER_SIZE = 16 * 1024;
 const std::size_t MAX_BODY_SIZE = 10 * 1024 * 1024;
 
-TEST_CASE("Parse request line") {
-    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE };
+class StringReader {
+public:
+    asio::awaitable<std::expected<std::string_view, httc::ReaderError>> pull() {
+        if (read) {
+            co_return std::unexpected(httc::ReaderError::CLOSED);
+        } else {
+            read = true;
+            co_return str;
+        }
+    };
+
+    void set_data(std::string data) {
+        str = data;
+        read = false;
+    }
+
+private:
+    bool read = false;
+    std::string str;
+};
+
+class StringByteReader {
+public:
+    asio::awaitable<std::expected<std::string_view, httc::ReaderError>> pull() {
+        if (pos >= str.size()) {
+            co_return std::unexpected(httc::ReaderError::CLOSED);
+        } else {
+            co_return std::string_view(&str[pos++], 1);
+        }
+    };
+
+    void set_data(std::string_view data) {
+        str = data;
+        pos = 0;
+    }
+
+    bool is_eof() const {
+        return pos >= str.size();
+    }
+
+private:
+    std::string_view str;
+    std::size_t pos = 0;
+};
+
+class StringArrayReader {
+public:
+    asio::awaitable<std::expected<std::string_view, httc::ReaderError>> pull() {
+        if (index >= data.size()) {
+            co_return std::unexpected(httc::ReaderError::CLOSED);
+        } else {
+            co_return data[index++];
+        }
+    };
+    void set_data(const std::vector<std::string>& input_data) {
+        data = input_data;
+        index = 0;
+    }
+
+private:
+    std::vector<std::string> data;
+    std::size_t index = 0;
+};
+
+ASYNC_TEST_CASE("Parse request line") {
+    auto reader = StringReader{};
+    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE, reader };
 
     SECTION("Valid request line") {
-        std::string_view message = "GET /index.html HTTP/1.1\r\n\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data("GET /index.html HTTP/1.1\r\n\r\n");
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(result->has_value());
         const auto& req = result->value();
@@ -19,8 +86,8 @@ TEST_CASE("Parse request line") {
     }
 
     SECTION("Valid request line with url encoding") {
-        std::string_view message = "GET /abc%20def HTTP/1.1\r\n\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data("GET /abc%20def HTTP/1.1\r\n\r\n");
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(result->has_value());
         const auto& req = result->value();
@@ -29,16 +96,16 @@ TEST_CASE("Parse request line") {
     }
 
     SECTION("Invalid HTTP version") {
-        std::string_view message = "GET /index.html HTTP/2.0\r\n\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data("GET /index.html HTTP/2.0\r\n\r\n");
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(!result->has_value());
         REQUIRE(result->error() == httc::RequestParserError::INVALID_REQUEST_LINE);
     }
 
     SECTION("Request line with leading CRLF") {
-        std::string_view message = "\r\n\r\nGET /index.html HTTP/1.1\r\n\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data("\r\n\r\nGET /index.html HTTP/1.1\r\n\r\n");
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(result->has_value());
         const auto& req = result->value();
@@ -47,44 +114,45 @@ TEST_CASE("Parse request line") {
     }
 
     SECTION("Invalid method token") {
-        std::string_view message = "GE==T /index.html HTTP/1.1\r\n\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data("GE==T /index.html HTTP/1.1\r\n\r\n");
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(!result->has_value());
         REQUIRE(result->error() == httc::RequestParserError::INVALID_REQUEST_LINE);
     }
 
     SECTION("Invalid request line 1") {
-        std::string_view message = "INVALID_REQUEST_LINE\r\n\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data("INVALID_REQUEST_LINE\r\n\r\n");
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(!result->has_value());
         REQUIRE(result->error() == httc::RequestParserError::INVALID_REQUEST_LINE);
     }
 
     SECTION("Invalid request line 2") {
-        std::string_view message = "GET /index.html\r\n\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data("GET /index.html\r\n\r\n");
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(!result->has_value());
         REQUIRE(result->error() == httc::RequestParserError::INVALID_REQUEST_LINE);
     }
 
     SECTION("Invalid request line 3") {
-        std::string_view message = "GET /index.html HTTP/1.1 EXTRA\r\n\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data("GET /index.html HTTP/1.1 EXTRA\r\n\r\n");
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(!result->has_value());
         REQUIRE(result->error() == httc::RequestParserError::INVALID_REQUEST_LINE);
     }
 }
 
-TEST_CASE("Parse query parameters") {
-    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE };
+ASYNC_TEST_CASE("Parse query parameters") {
+    auto reader = StringReader{};
+    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE, reader };
 
     SECTION("Valid query parameters") {
-        std::string_view message = "GET /search?q=test&page=1 HTTP/1.1\r\n\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data("GET /search?q=test&page=1 HTTP/1.1\r\n\r\n");
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(result->has_value());
         const auto& req = result->value();
@@ -98,8 +166,8 @@ TEST_CASE("Parse query parameters") {
     }
 
     SECTION("Empty query parameter value") {
-        std::string_view message = "GET /search?q=&p= HTTP/1.1\r\n\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data("GET /search?q=&p= HTTP/1.1\r\n\r\n");
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(result->has_value());
         const auto& req = result->value();
@@ -113,15 +181,18 @@ TEST_CASE("Parse query parameters") {
     }
 }
 
-TEST_CASE("Parse headers") {
-    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE };
+ASYNC_TEST_CASE("Parse headers") {
+    StringReader reader;
+    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE, reader };
 
     SECTION("Valid headers") {
-        std::string_view message = "GET /index.html HTTP/1.1\r\n"
-                                   "Host: example.com\r\n"
-                                   "User-Agent: TestAgent/1.0\r\n"
-                                   "\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data(
+            "GET /index.html HTTP/1.1\r\n"
+            "Host: example.com\r\n"
+            "User-Agent: TestAgent/1.0\r\n"
+            "\r\n"
+        );
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(result->has_value());
         const auto& req = result->value();
@@ -136,30 +207,41 @@ TEST_CASE("Parse headers") {
     }
 
     SECTION("Invalid header name") {
-        std::string_view message = "GET /index.html HTTP/1.1\r\n"
-                                   "Inva lid-Header: value\r\n"
-                                   "\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data(
+            "GET /index.html HTTP/1.1\r\n"
+            "Inva lid-Header: value\r\n"
+            "\r\n"
+        );
+        auto result = co_await parser.next();
+        REQUIRE(result.has_value());
+        REQUIRE(!result->has_value());
+        REQUIRE(result->error() == httc::RequestParserError::INVALID_HEADER);
+
         REQUIRE(result.has_value());
         REQUIRE(!result->has_value());
         REQUIRE(result->error() == httc::RequestParserError::INVALID_HEADER);
     }
 
     SECTION("Invalid header value") {
-        std::string_view message = "GET /index.html HTTP/1.1\r\n"
-                                   "Valid-Header: value\x01\x02\x03\r\n"
-                                   "\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data(
+            "GET /index.html HTTP/1.1\r\n"
+            "Valid-Header: value\x01\x02\x03\r\n"
+            "\r\n"
+        );
+        auto result = co_await parser.next();
+
         REQUIRE(result.has_value());
         REQUIRE(!result->has_value());
         REQUIRE(result->error() == httc::RequestParserError::INVALID_HEADER);
     }
 
     SECTION("Header whitespace handling 1") {
-        std::string_view message = "GET /index.html HTTP/1.1\r\n"
-                                   "X-Custom-Header:    value with spaces   \r\n"
-                                   "\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data(
+            "GET /index.html HTTP/1.1\r\n"
+            "X-Custom-Header:    value with spaces   \r\n"
+            "\r\n"
+        );
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(result->has_value());
         const auto& req = result->value();
@@ -171,10 +253,12 @@ TEST_CASE("Parse headers") {
     }
 
     SECTION("Header whitespace handling 2") {
-        std::string_view message = "GET /index.html HTTP/1.1\r\n"
-                                   "X-Custom-Header:value with spaces\r\n"
-                                   "\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data(
+            "GET /index.html HTTP/1.1\r\n"
+            "X-Custom-Header:value with spaces\r\n"
+            "\r\n"
+        );
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(result->has_value());
         const auto& req = result->value();
@@ -186,40 +270,48 @@ TEST_CASE("Parse headers") {
     }
 
     SECTION("Header with whitespace 3") {
-        std::string_view message = "GET /index.html HTTP/1.1\r\n"
-                                   "X-Custom-Header : value with spaces\r\n"
-                                   "\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data(
+            "GET /index.html HTTP/1.1\r\n"
+            "X-Custom-Header : value with spaces\r\n"
+            "\r\n"
+        );
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(!result->has_value());
         REQUIRE(result->error() == httc::RequestParserError::INVALID_HEADER);
     }
 
     SECTION("Missing colon in header") {
-        std::string_view message = "GET /index.html HTTP/1.1\r\n"
-                                   "Invalid-Header value\r\n"
-                                   "\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data(
+            "GET /index.html HTTP/1.1\r\n"
+            "Invalid-Header value\r\n"
+            "\r\n"
+        );
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(!result->has_value());
         REQUIRE(result->error() == httc::RequestParserError::INVALID_HEADER);
     }
 
     SECTION("Empty header name") {
-        std::string_view message = "GET /index.html HTTP/1.1\r\n"
-                                   ": value\r\n"
-                                   "\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data(
+            "GET /index.html HTTP/1.1\r\n"
+            ": value\r\n"
+            "\r\n"
+        );
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(!result->has_value());
         REQUIRE(result->error() == httc::RequestParserError::INVALID_HEADER);
     }
 
     SECTION("Empty header value") {
-        std::string_view message = "GET /index.html HTTP/1.1\r\n"
-                                   "X-Empty-Header: \r\n"
-                                   "\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data(
+            "GET /index.html HTTP/1.1\r\n"
+            "X-Empty-Header: \r\n"
+            "\r\n"
+        );
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(result->has_value());
         const auto& req = result->value();
@@ -232,28 +324,33 @@ TEST_CASE("Parse headers") {
 
     SECTION("Headers exceeding maximum size") {
         std::string large_header_value(MAX_HEADER_SIZE, 'a');
-        std::string message = "GET /index.html HTTP/1.1\r\n"
-                              "X-Large-Header: "
-                              + large_header_value
-                              + "\r\n"
-                                "\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data(
+            "GET /index.html HTTP/1.1\r\n"
+            "X-Large-Header: "
+            + large_header_value
+            + "\r\n"
+              "\r\n"
+        );
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(!result->has_value());
         REQUIRE(result->error() == httc::RequestParserError::HEADER_TOO_LARGE);
     }
 }
 
-TEST_CASE("Parse Content-length bodies") {
-    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE };
+ASYNC_TEST_CASE("Parse Content-length bodies") {
+    auto reader = StringReader{};
+    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE, reader };
 
     SECTION("Valid Content-Length body") {
-        std::string_view message = "POST /submit HTTP/1.1\r\n"
-                                   "Host: example.com\r\n"
-                                   "Content-Length: 13\r\n"
-                                   "\r\n"
-                                   "Hello, World!";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data(
+            "POST /submit HTTP/1.1\r\n"
+            "Host: example.com\r\n"
+            "Content-Length: 13\r\n"
+            "\r\n"
+            "Hello, World!"
+        );
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(result->has_value());
         const auto& req = result->value();
@@ -266,44 +363,51 @@ TEST_CASE("Parse Content-length bodies") {
     }
 
     SECTION("Invalid Content-Length value") {
-        std::string_view message = "POST /submit HTTP/1.1\r\n"
-                                   "Host: example.com\r\n"
-                                   "Content-Length: invalid\r\n"
-                                   "\r\n"
-                                   "Hello, World!";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data(
+            "POST /submit HTTP/1.1\r\n"
+            "Host: example.com\r\n"
+            "Content-Length: invalid\r\n"
+            "\r\n"
+            "Hello, World!"
+        );
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(!result->has_value());
         REQUIRE(result->error() == httc::RequestParserError::INVALID_HEADER);
     }
 
     SECTION("Content-Length exceeds maximum size") {
-        std::string_view message = "POST /submit HTTP/1.1\r\n"
-                                   "Host: example.com\r\n"
-                                   "Content-Length: 10485771\r\n" // 10 MB + 1 byte
-                                   "\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data(
+            "POST /submit HTTP/1.1\r\n"
+            "Host: example.com\r\n"
+            "Content-Length: 10485771\r\n" // 10 MB + 1 byte
+            "\r\n"
+        );
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(!result->has_value());
         REQUIRE(result->error() == httc::RequestParserError::CONTENT_TOO_LARGE);
     }
 }
 
-TEST_CASE("Parse chunked bodies") {
-    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE };
+ASYNC_TEST_CASE("Parse chunked bodies") {
+    auto reader = StringReader{};
+    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE, reader };
 
     SECTION("Valid chunked body") {
-        std::string_view message = "POST /submit HTTP/1.1\r\n"
-                                   "Host: example.com\r\n"
-                                   "Transfer-Encoding: chunked\r\n"
-                                   "\r\n"
-                                   "5\r\n"
-                                   "Hello\r\n"
-                                   "7\r\n"
-                                   ", World\r\n"
-                                   "0\r\n"
-                                   "\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data(
+            "POST /submit HTTP/1.1\r\n"
+            "Host: example.com\r\n"
+            "Transfer-Encoding: chunked\r\n"
+            "\r\n"
+            "5\r\n"
+            "Hello\r\n"
+            "7\r\n"
+            ", World\r\n"
+            "0\r\n"
+            "\r\n"
+        );
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(result->has_value());
         const auto& req = result->value();
@@ -316,35 +420,39 @@ TEST_CASE("Parse chunked bodies") {
     }
 
     SECTION("Invalid chunk size") {
-        std::string_view message = "POST /submit HTTP/1.1\r\n"
-                                   "Host: example.com\r\n"
-                                   "Transfer-Encoding: chunked\r\n"
-                                   "\r\n"
-                                   "invalid\r\n"
-                                   "Hello\r\n"
-                                   "0\r\n"
-                                   "\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data(
+            "POST /submit HTTP/1.1\r\n"
+            "Host: example.com\r\n"
+            "Transfer-Encoding: chunked\r\n"
+            "\r\n"
+            "invalid\r\n"
+            "Hello\r\n"
+            "0\r\n"
+            "\r\n"
+        );
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(!result->has_value());
         REQUIRE(result->error() == httc::RequestParserError::INVALID_CHUNK_ENCODING);
     }
 
     SECTION("With trailers") {
-        std::string_view message = "POST /submit HTTP/1.1\r\n"
-                                   "Host: example.com\r\n"
-                                   "Transfer-Encoding: chunked\r\n"
-                                   "\r\n"
-                                   "5\r\n"
-                                   "Hello\r\n"
-                                   "7\r\n"
-                                   ", World\r\n"
-                                   "0\r\n"
-                                   "Trailer-Header: TrailerValue\r\n"
-                                   "Other-Trailer: AnotherValue\r\n"
-                                   "\r\n";
+        reader.set_data(
+            "POST /submit HTTP/1.1\r\n"
+            "Host: example.com\r\n"
+            "Transfer-Encoding: chunked\r\n"
+            "\r\n"
+            "5\r\n"
+            "Hello\r\n"
+            "7\r\n"
+            ", World\r\n"
+            "0\r\n"
+            "Trailer-Header: TrailerValue\r\n"
+            "Other-Trailer: AnotherValue\r\n"
+            "\r\n"
+        );
 
-        auto result = parser.feed_data(message.data(), message.size());
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(result->has_value());
 
@@ -360,108 +468,100 @@ TEST_CASE("Parse chunked bodies") {
     }
 }
 
-TEST_CASE("Parse in multiple chunks") {
-    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE };
+ASYNC_TEST_CASE("Parse in multiple chunks") {
+    auto reader = StringByteReader{};
+    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE, reader };
 
     SECTION("Without body") {
-        std::string_view message = "GET /index.html HTTP/1.1\r\n"
-                                   "Host: example.com\r\n"
-                                   "\r\n";
-        std::optional<httc::RequestParser::ParseResult> result;
-        for (int i = 0; i < message.size(); i++) {
-            INFO("Feeding byte " << i);
-            result = parser.feed_data(&message[i], 1);
+        reader.set_data(
+            "GET /index.html HTTP/1.1\r\n"
+            "Host: example.com\r\n"
+            "\r\n"
+        );
+        auto result = co_await parser.next();
 
-            if (i < message.size() - 1) {
-                REQUIRE(!result.has_value());
-            } else {
-                REQUIRE(result.has_value());
-                REQUIRE(result->has_value());
-                const auto& req = result->value();
-                CHECK(req.method == "GET");
-                CHECK(req.uri.to_string() == "/index.html");
-                auto host = req.header("Host");
-                CHECK(host.has_value());
-                CHECK(host.value() == "example.com");
-            }
-        }
+        REQUIRE(result.has_value());
+        REQUIRE(result->has_value());
+        const auto& req = result->value();
+        CHECK(req.method == "GET");
+        CHECK(req.uri.to_string() == "/index.html");
+        auto host = req.header("Host");
+        CHECK(host.has_value());
+        CHECK(host.value() == "example.com");
+
+        REQUIRE(reader.is_eof());
     }
 
     SECTION("With Content-Length body") {
-        std::string_view message = "POST /submit HTTP/1.1\r\n"
-                                   "Host: example.com\r\n"
-                                   "Content-Length: 13\r\n"
-                                   "\r\n"
-                                   "Hello, World!";
-        std::optional<httc::RequestParser::ParseResult> result;
-        for (int i = 0; i < message.size(); i++) {
-            INFO("Feeding byte " << i);
-            result = parser.feed_data(&message[i], 1);
+        reader.set_data(
+            "POST /submit HTTP/1.1\r\n"
+            "Host: example.com\r\n"
+            "Content-Length: 13\r\n"
+            "\r\n"
+            "Hello, World!"
+        );
+        auto result = co_await parser.next();
 
-            if (i < message.size() - 1) {
-                REQUIRE(!result.has_value());
-            } else {
-                REQUIRE(result.has_value());
-                REQUIRE(result->has_value());
-                const auto& req = result->value();
-                CHECK(req.method == "POST");
-                CHECK(req.uri.to_string() == "/submit");
-                auto content_length = req.header("Content-Length");
-                CHECK(content_length.has_value());
-                CHECK(content_length.value() == "13");
-                CHECK(req.body == "Hello, World!");
-            }
-        }
+        REQUIRE(result.has_value());
+        REQUIRE(result->has_value());
+        const auto& req = result->value();
+        CHECK(req.method == "POST");
+        CHECK(req.uri.to_string() == "/submit");
+        auto content_length = req.header("Content-Length");
+        CHECK(content_length.has_value());
+        CHECK(content_length.value() == "13");
+        CHECK(req.body == "Hello, World!");
+
+        REQUIRE(reader.is_eof());
     }
 
     SECTION("With chunked body") {
-        std::string_view message = "POST /submit HTTP/1.1\r\n"
-                                   "Host: example.com\r\n"
-                                   "Transfer-Encoding: chunked\r\n"
-                                   "\r\n"
-                                   "5\r\n"
-                                   "Hello\r\n"
-                                   "7\r\n"
-                                   ", World\r\n"
-                                   "0\r\n"
-                                   "\r\n";
-        std::optional<httc::RequestParser::ParseResult> result;
-        for (int i = 0; i < message.size(); i++) {
-            INFO("Feeding byte " << i);
-            result = parser.feed_data(&message[i], 1);
+        reader.set_data(
+            "POST /submit HTTP/1.1\r\n"
+            "Host: example.com\r\n"
+            "Transfer-Encoding: chunked\r\n"
+            "\r\n"
+            "5\r\n"
+            "Hello\r\n"
+            "7\r\n"
+            ", World\r\n"
+            "0\r\n"
+            "\r\n"
+        );
+        auto result = co_await parser.next();
+        REQUIRE(result.has_value());
+        REQUIRE(result->has_value());
+        const auto& req = result->value();
+        CHECK(req.method == "POST");
+        CHECK(req.uri.to_string() == "/submit");
+        auto transfer_encoding = req.header("Transfer-Encoding");
+        CHECK(transfer_encoding.has_value());
+        CHECK(transfer_encoding.value() == "chunked");
+        CHECK(req.body == "Hello, World");
 
-            if (i < message.size() - 1) {
-                REQUIRE(!result.has_value());
-            } else {
-                REQUIRE(result.has_value());
-                REQUIRE(result->has_value());
-                const auto& req = result->value();
-                CHECK(req.method == "POST");
-                CHECK(req.uri.to_string() == "/submit");
-                auto transfer_encoding = req.header("Transfer-Encoding");
-                CHECK(transfer_encoding.has_value());
-                CHECK(transfer_encoding.value() == "chunked");
-                CHECK(req.body == "Hello, World");
-            }
-        }
+        REQUIRE(reader.is_eof());
     }
 }
 
-TEST_CASE("Multiple requests") {
-    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE };
+ASYNC_TEST_CASE("Multiple requests") {
+    StringArrayReader reader;
+    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE, reader };
 
-    std::string_view message1 = "POST /abc HTTP/1.1\r\n"
-                                "Host: example.com\r\n"
-                                "Content-Length: 5\r\n"
-                                "\r\n"
-                                "HelloPOST";
-    std::string_view message2 = " /submit HTTP/1.1\r\n"
-                                "Host: example.com\r\n"
-                                "Content-Length: 13\r\n"
-                                "\r\n"
-                                "Hello, World!";
+    reader.set_data(
+        { "POST /abc HTTP/1.1\r\n"
+          "Host: example.com\r\n"
+          "Content-Length: 5\r\n"
+          "\r\n"
+          "HelloPOST",
 
-    auto result1 = parser.feed_data(message1.data(), message1.size());
+          " /submit HTTP/1.1\r\n"
+          "Host: example.com\r\n"
+          "Content-Length: 13\r\n"
+          "\r\n"
+          "Hello, World!" }
+    );
+
+    auto result1 = co_await parser.next();
     REQUIRE(result1.has_value());
     REQUIRE(result1->has_value());
     const auto& req1 = result1->value();
@@ -472,7 +572,7 @@ TEST_CASE("Multiple requests") {
     REQUIRE(content_length1.value() == "5");
     REQUIRE(req1.body == "Hello");
 
-    auto result2 = parser.feed_data(message2.data(), message2.size());
+    auto result2 = co_await parser.next();
     REQUIRE(result2.has_value());
     REQUIRE(result2->has_value());
     const auto& req2 = result2->value();
@@ -484,19 +584,22 @@ TEST_CASE("Multiple requests") {
     REQUIRE(req2.body == "Hello, World!");
 }
 
-TEST_CASE("URI with encoded reserved characters") {
-    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE };
+ASYNC_TEST_CASE("URI with encoded reserved characters") {
+    StringReader reader;
+    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE, reader };
 
     // /search?q=hello%26world&key=val%3Due
     // Should be parsed as:
     // path: /search
     // query: q = hello&world
     // query: key = val=ue
-    std::string_view message = "GET /search?q=hello%26world&key=val%3Due HTTP/1.1\r\n"
-                               "Host: example.com\r\n"
-                               "\r\n";
+    reader.set_data(
+        "GET /search?q=hello%26world&key=val%3Due HTTP/1.1\r\n"
+        "Host: example.com\r\n"
+        "\r\n"
+    );
 
-    auto result = parser.feed_data(message.data(), message.size());
+    auto result = co_await parser.next();
     REQUIRE(result.has_value());
     REQUIRE(result->has_value());
     const auto& req = result->value();
@@ -518,38 +621,36 @@ TEST_CASE("URI with encoded reserved characters") {
     CHECK(!world.has_value());
 }
 
-TEST_CASE("Many small headers exceeding limit") {
-    httc::RequestParser parser{ 1024, MAX_BODY_SIZE };
+ASYNC_TEST_CASE("Many small headers exceeding limit") {
+    StringArrayReader reader;
+    httc::RequestParser parser{ 1024, MAX_BODY_SIZE, reader };
 
-    std::string request_start = "GET / HTTP/1.1\r\n";
-    parser.feed_data(request_start.data(), request_start.size());
-
+    auto data = std::vector<std::string>{};
+    data.push_back("GET / HTTP/1.1\r\n");
     for (int i = 0; i < 200; ++i) {
-        std::string header = std::format("H{}: v\r\n", i);
-        auto result = parser.feed_data(header.data(), header.size());
-
-        if (result.has_value() && !result->has_value()
-            && result->error() == httc::RequestParserError::HEADER_TOO_LARGE) {
-            SUCCEED("Correctly detected header overflow");
-            return;
-        }
+        data.push_back(std::format("H{}: v\r\n", i));
     }
 
-    std::string request_end = "\r\n";
-    auto result = parser.feed_data(request_end.data(), request_end.size());
+    reader.set_data(data);
+    auto result = co_await parser.next();
 
-    FAIL("Parser accepted headers exceeding the configured maximum size");
+    REQUIRE(result.has_value());
+    REQUIRE(!result->has_value());
+    REQUIRE(result->error() == httc::RequestParserError::HEADER_TOO_LARGE);
 }
 
-TEST_CASE("Cookies") {
-    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE };
+ASYNC_TEST_CASE("Cookies") {
+    StringReader reader;
+    httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE, reader };
 
     SECTION("Single Cookie header") {
-        std::string_view message = "GET / HTTP/1.1\r\n"
-                                   "Host: example.com\r\n"
-                                   "Cookie: sessionId=abc123\r\n"
-                                   "\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data(
+            "GET / HTTP/1.1\r\n"
+            "Host: example.com\r\n"
+            "Cookie: sessionId=abc123\r\n"
+            "\r\n"
+        );
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(result->has_value());
         const auto& req = result->value();
@@ -559,12 +660,14 @@ TEST_CASE("Cookies") {
     }
 
     SECTION("Multiple Cookie headers") {
-        std::string_view message = "GET / HTTP/1.1\r\n"
-                                   "Host: example.com\r\n"
-                                   "Cookie: sessionId=abc123\r\n"
-                                   "Cookie: theme=light\r\n"
-                                   "\r\n";
-        auto result = parser.feed_data(message.data(), message.size());
+        reader.set_data(
+            "GET / HTTP/1.1\r\n"
+            "Host: example.com\r\n"
+            "Cookie: sessionId=abc123\r\n"
+            "Cookie: theme=light\r\n"
+            "\r\n"
+        );
+        auto result = co_await parser.next();
         REQUIRE(result.has_value());
         REQUIRE(result->has_value());
         const auto& req = result->value();

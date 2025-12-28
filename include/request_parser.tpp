@@ -134,7 +134,7 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_reque
 
 template<Reader R>
 asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_headers() {
-    while (!m_view.empty()) {
+    while (true) {
         auto crlf_opt = co_await pull_until_crlf();
         if (!crlf_opt.has_value()) {
             co_return RequestParserError::READER_CLOSED;
@@ -161,8 +161,6 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_heade
             co_return result;
         }
     }
-
-    co_return std::nullopt;
 }
 
 template<Reader R>
