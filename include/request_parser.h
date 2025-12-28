@@ -2,12 +2,14 @@
 
 #include <asio.hpp>
 #include <expected>
+#include "reader.h"
 #include "request.h"
 #include "status.h"
 
 namespace httc {
 
 enum class RequestParserError {
+    READER_CLOSED,
     INVALID_REQUEST_LINE,
     INVALID_HEADER,
     UNSUPPORTED_TRANSFER_ENCODING,
@@ -18,12 +20,14 @@ enum class RequestParserError {
 
 StatusCode parse_error_to_status_code(RequestParserError error);
 
+using ParseResult = std::expected<Request, RequestParserError>;
+
+template<Reader R = SocketReader>
 class RequestParser {
 public:
-    RequestParser(std::size_t max_headers_size, std::size_t max_body_size);
-    using ParseResult = std::expected<Request, RequestParserError>;
+    RequestParser(std::size_t max_headers_size, std::size_t max_body_size, R& reader);
 
-    std::optional<ParseResult> feed_data(const char* data, std::size_t length);
+    asio::awaitable<std::optional<ParseResult>> next();
 
 private:
     enum class State {
@@ -36,20 +40,23 @@ private:
         PARSE_COMPLETE,
     };
 
-    std::optional<RequestParserError> parse_request_line();
-    std::optional<RequestParserError> parse_headers();
-    std::optional<RequestParserError> prepare_parse_body();
-    std::optional<RequestParserError> parse_body_content_length();
-    std::optional<RequestParserError> parse_body_chunked_size();
-    std::optional<RequestParserError> parse_body_chunked_data();
-    std::optional<RequestParserError> parse_chunked_trailers();
+    asio::awaitable<std::optional<RequestParserError>> parse_request_line();
+    asio::awaitable<std::optional<RequestParserError>> parse_headers();
+    asio::awaitable<std::optional<RequestParserError>> prepare_parse_body();
+    asio::awaitable<std::optional<RequestParserError>> parse_body_content_length();
+    asio::awaitable<std::optional<RequestParserError>> parse_body_chunked_size();
+    asio::awaitable<std::optional<RequestParserError>> parse_body_chunked_data();
+    asio::awaitable<std::optional<RequestParserError>> parse_chunked_trailers();
 
     void reset();
     void reset_err();
 
     void advance_view(std::size_t n);
 
-    std::optional<RequestParserError> parse_header(std::string_view header_line, Headers& target);
+    asio::awaitable<std::optional<std::size_t>> pull_until_crlf();
+
+    asio::awaitable<std::optional<RequestParserError>>
+        parse_header(std::string_view header_line, Headers& target);
 
 private:
     Request m_req;
@@ -66,6 +73,10 @@ private:
     // Current headers size, including request line and CRLFs
     std::size_t m_current_headers_size;
     std::size_t m_max_body_size;
+
+    R& m_reader;
 };
 
 }
+
+#include "request_parser.tpp"
