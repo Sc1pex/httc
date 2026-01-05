@@ -1,10 +1,9 @@
 #pragma once
 
 #include <format>
-#include <optional>
 #include <string>
-#include <string_view>
 #include "headers.h"
+#include "reader.h"
 #include "uri.h"
 
 namespace httc {
@@ -12,8 +11,6 @@ namespace httc {
 class Request {
 public:
     Request();
-
-    std::optional<std::string_view> header(std::string_view header) const;
 
     std::string method;
     URI uri;
@@ -25,6 +22,12 @@ public:
 
     std::string wildcard_path;
     std::unordered_map<std::string, std::string> path_params;
+
+private:
+    std::string m_raw_headers;
+
+    template<Reader R>
+    friend class RequestParser;
 };
 
 }

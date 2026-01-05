@@ -74,7 +74,7 @@ template<Reader R>
 asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_request_line() {
     std::size_t crlf;
     while (true) {
-        auto crlf_opt = co_await pull_until_crlf();
+        auto crlf_opt = co_await pull_until("\r\n");
         if (!crlf_opt.has_value()) {
             co_return RequestParserError::READER_CLOSED;
         }
@@ -134,28 +134,33 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_reque
 
 template<Reader R>
 asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_headers() {
+    auto headers_end_opt = co_await pull_until("\r\n\r\n");
+    if (!headers_end_opt.has_value()) {
+        co_return RequestParserError::READER_CLOSED;
+    }
+    auto headers_end = headers_end_opt.value();
+
+    // Copy the raw header string in the request for storing refrences to it in the headers map
+    m_req.m_raw_headers = std::string(m_view.substr(0, headers_end + 2));
+    auto headers = std::string_view(m_view.data(), headers_end + 2);
+
+    m_current_headers_size += headers.size();
+    if (m_current_headers_size > m_max_headers_size) {
+        co_return RequestParserError::HEADER_TOO_LARGE;
+    }
+
     while (true) {
-        auto crlf_opt = co_await pull_until_crlf();
-        if (!crlf_opt.has_value()) {
-            co_return RequestParserError::READER_CLOSED;
-        }
-        auto crlf = crlf_opt.value();
-
-        std::string_view header_line = m_view.substr(0, crlf);
-
-        m_current_headers_size += header_line.size() + 2;
-        if (m_current_headers_size > m_max_headers_size) {
-            co_return RequestParserError::HEADER_TOO_LARGE;
-        }
+        auto newline = headers.find("\r\n");
+        auto header_lines = headers.substr(0, newline);
 
         // End of headers
-        if (header_line.empty()) {
-            advance_view(crlf + 2);
+        if (header_lines.empty()) {
+            advance_view(headers_end + 2);
             co_return co_await prepare_parse_body();
         }
 
-        auto result = co_await parse_header(header_line, m_req.headers);
-        advance_view(crlf + 2);
+        auto result = co_await parse_header(header_lines, m_req.headers);
+        advance_view(headers_end + 2);
 
         if (result.has_value()) {
             co_return result;
@@ -166,7 +171,7 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_heade
 template<Reader R>
 asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_chunked_trailers() {
     while (!m_view.empty()) {
-        auto crlf_opt = co_await pull_until_crlf();
+        auto crlf_opt = co_await pull_until("\r\n");
         if (!crlf_opt.has_value()) {
             co_return RequestParserError::READER_CLOSED;
         }
@@ -226,7 +231,7 @@ asio::awaitable<std::optional<RequestParserError>>
     }
 
     try {
-        target.set(std::move(name), std::move(value));
+        target.set_view(name, value);
     } catch (const std::invalid_argument& e) {
         co_return RequestParserError::INVALID_HEADER;
     }
@@ -235,8 +240,8 @@ asio::awaitable<std::optional<RequestParserError>>
 
 template<Reader R>
 asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::prepare_parse_body() {
-    auto encoding_opt = m_req.header("Transfer-Encoding");
-    auto content_length_opt = m_req.header("Content-Length");
+    auto encoding_opt = m_req.headers.get_one("Transfer-Encoding");
+    auto content_length_opt = m_req.headers.get_one("Content-Length");
 
     // Both Content-Length and Transfer-Encoding present
     if (content_length_opt.has_value() && encoding_opt.has_value()) {
@@ -263,7 +268,7 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::prepare_par
 template<Reader R>
 asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_body_content_length() {
     // We know Content-Length is present because of the state machine
-    auto content_length_sv = *m_req.header("Content-Length");
+    auto content_length_sv = *m_req.headers.get_one("Content-Length");
     std::size_t content_length = 0;
 
     auto res = std::from_chars(
@@ -294,7 +299,7 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_body_
 
 template<Reader R>
 asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_body_chunked_size() {
-    auto crlf_opt = co_await pull_until_crlf();
+    auto crlf_opt = co_await pull_until("\r\n");
     if (!crlf_opt.has_value()) {
         co_return RequestParserError::READER_CLOSED;
     }
@@ -371,9 +376,9 @@ void RequestParser<R>::advance_view(std::size_t n) {
 }
 
 template<Reader R>
-asio::awaitable<std::optional<std::size_t>> RequestParser<R>::pull_until_crlf() {
+asio::awaitable<std::optional<std::size_t>> RequestParser<R>::pull_until(std::string_view chars) {
     while (true) {
-        auto crlf = m_view.find("\r\n");
+        auto crlf = m_view.find(chars);
         if (crlf != std::string::npos) {
             co_return crlf;
         }

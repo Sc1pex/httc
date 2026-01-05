@@ -1,4 +1,5 @@
 #include "reader.h"
+#include <asio.hpp>
 
 namespace httc {
 

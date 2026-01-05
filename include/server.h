@@ -4,14 +4,9 @@
 #include <string>
 #include "common.h"
 #include "router.h"
+#include "server_config.h"
 
 namespace httc {
-
-struct ServerConfig {
-    std::size_t max_header_size = 16 * 1024;
-    std::size_t max_body_size = 16 * 1024 * 1024;
-    std::chrono::seconds request_timeout_seconds = std::chrono::seconds(30);
-};
 
 void bind_and_listen(
     const std::string& addr, unsigned int port, sp<Router> router, asio::io_context& io_ctx,

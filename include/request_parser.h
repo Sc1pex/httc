@@ -53,7 +53,7 @@ private:
 
     void advance_view(std::size_t n);
 
-    asio::awaitable<std::optional<std::size_t>> pull_until_crlf();
+    asio::awaitable<std::optional<std::size_t>> pull_until(std::string_view chars);
 
     asio::awaitable<std::optional<RequestParserError>>
         parse_header(std::string_view header_line, Headers& target);
