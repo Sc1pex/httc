@@ -1,7 +1,7 @@
 #pragma once
 
+#include <deque>
 #include <format>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -10,22 +10,41 @@ namespace httc {
 
 class Headers {
 public:
-    void set(std::string_view header, std::string_view value);
-    bool unset(std::string_view header);
-    void add(std::string_view header, std::string_view value);
+    // Set a header, replacing any existing entries with the same name.
+    void set(std::string header, std::string value);
 
+    // Delete every entry with the given header name.
+    // Returns true if any entry was deleted.
+    bool unset(std::string_view header);
+
+    // Add a header. If the header already exists, appends the new value to the list of existing
+    // values.
+    void add(std::string header, std::string value);
+
+    // Set a header, replacing any existing entries with the same name.
+    // WARNING: The header and value must be valid for the lifetime of this Headers object.
+    void set_view(std::string_view header, std::string_view value);
+
+    // Add a header. If the header already exists, appends the new value to the list of existing
+    // values.
+    // WARNING: The header and value must be valid for the lifetime of this Headers object.
+    void add_view(std::string_view header, std::string_view value);
+
+    // Returns the number of values stored
     std::size_t size() const;
 
-    std::optional<std::string_view> get(std::string_view header) const;
+    // Get the first value for the given header, or std::nullopt if not found.
+    std::optional<std::string_view> get_one(std::string_view header) const;
+
+    auto get(std::string_view header) const {
+        return m_map.equal_range(header);
+    }
 
 private:
     // FNV-1a hash for case insensitive strings
     struct CaseInsensitiveHash {
         using is_transparent = void;
 
-        size_t operator()(const std::string& str) const {
-            return hash(str);
-        }
         size_t operator()(std::string_view str) const {
             return hash(str);
         }
@@ -76,13 +95,14 @@ private:
 
 public:
     // Types for STL container compatibility
-    using value_type = std::pair<const std::string, std::string>;
+    using value_type = std::pair<const std::string_view, std::string_view>;
     using reference = value_type&;
     using const_reference = const value_type&;
-    using iterator = std::unordered_map<
-        std::string, std::string, CaseInsensitiveHash, CaseInsensitiveSearch>::iterator;
-    using const_iterator = std::unordered_map<
-        std::string, std::string, CaseInsensitiveHash, CaseInsensitiveSearch>::const_iterator;
+    using iterator = std::unordered_multimap<
+        std::string_view, std::string_view, CaseInsensitiveHash, CaseInsensitiveSearch>::iterator;
+    using const_iterator = std::unordered_multimap<
+        std::string_view, std::string_view, CaseInsensitiveHash,
+        CaseInsensitiveSearch>::const_iterator;
 
     // Iterator interface
     iterator begin() {
@@ -105,7 +125,11 @@ public:
     }
 
 private:
-    std::unordered_map<std::string, std::string, CaseInsensitiveHash, CaseInsensitiveSearch> m_map;
+    std::unordered_multimap<
+        std::string_view, std::string_view, CaseInsensitiveHash, CaseInsensitiveSearch>
+        m_map;
+
+    std::deque<std::string> m_owned_strings;
     friend struct std::formatter<Headers>;
 };
 
