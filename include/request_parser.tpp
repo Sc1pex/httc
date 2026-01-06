@@ -65,7 +65,7 @@ asio::awaitable<std::optional<ParseResult>> RequestParser<R>::next() {
     m_view_start = 0;
     m_view = std::string_view(m_buffer.data(), m_buffer.size());
 
-    auto req = m_req;
+    auto req = std::move(m_req);
     reset();
     co_return req;
 }
@@ -141,8 +141,10 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_heade
     auto headers_end = headers_end_opt.value();
 
     // Copy the raw header string in the request for storing refrences to it in the headers map
-    m_req.m_raw_headers = std::string(m_view.substr(0, headers_end + 2));
-    auto headers = std::string_view(m_view.data(), headers_end + 2);
+    m_req.m_raw_headers = std::string(m_view.substr(0, headers_end + 4));
+    auto headers = std::string_view(m_req.m_raw_headers);
+
+    advance_view(headers_end + 4);
 
     m_current_headers_size += headers.size();
     if (m_current_headers_size > m_max_headers_size) {
@@ -152,15 +154,14 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_heade
     while (true) {
         auto newline = headers.find("\r\n");
         auto header_lines = headers.substr(0, newline);
+        headers = headers.substr(newline + 2);
 
         // End of headers
         if (header_lines.empty()) {
-            advance_view(headers_end + 2);
             co_return co_await prepare_parse_body();
         }
 
         auto result = co_await parse_header(header_lines, m_req.headers);
-        advance_view(headers_end + 2);
 
         if (result.has_value()) {
             co_return result;

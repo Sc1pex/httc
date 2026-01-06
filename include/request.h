@@ -12,6 +12,12 @@ class Request {
 public:
     Request();
 
+    Request(const Request&) = delete;
+    Request& operator=(const Request&) = delete;
+
+    Request(Request&&) noexcept = default;
+    Request& operator=(Request&&) noexcept = default;
+
     std::string method;
     URI uri;
     std::string body;

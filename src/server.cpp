@@ -22,7 +22,7 @@ awaitable<void> handle_conn(tcp::socket socket, sp<Router> router, const ServerC
             break;
         }
 
-        auto req_result = *req_opt;
+        auto req_result = std::move(*req_opt);
         if (!req_result.has_value()) {
             auto res =
                 Response::from_status(socket, parse_error_to_status_code(req_result.error()));
@@ -34,7 +34,7 @@ awaitable<void> handle_conn(tcp::socket socket, sp<Router> router, const ServerC
         bool success = false;
         try {
             Response res{ socket };
-            auto req = req_result.value();
+            auto req = std::move(req_result).value();
             co_await router->handle(req, res);
             co_await Response::send(std::move(res));
             success = true;
