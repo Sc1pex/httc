@@ -13,13 +13,12 @@ std::string generate_request(std::string_view size) {
                 "Connection: keep-alive\r\n";
     } else if (size == "lg") {
         for (int i = 0; i < 50; ++i) {
-            base += "X-Custom-Header-" + std::to_string(i) + ": some-value-" + std::to_string(i)
-                    + "\r\n";
+            base += std::format("X-Custom-Header-{}: some-value-{}\r\n", i, i);
         }
     } else if (size == "xl") {
         // ~50KB of headers
         for (int i = 0; i < 1000; ++i) {
-            base += "X-Large-Header-" + std::to_string(i) + ": " + std::string(50, 'X') + "\r\n";
+            base += std::format("X-Large-Header-{}: {}\r\n", i, std::string(50, 'X'));
         }
     }
 
