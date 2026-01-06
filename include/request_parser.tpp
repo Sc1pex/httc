@@ -134,6 +134,16 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_reque
 
 template<Reader R>
 asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_headers() {
+    auto first_header_end = co_await pull_until("\r\n");
+    if (!first_header_end.has_value()) {
+        co_return RequestParserError::READER_CLOSED;
+    }
+    if (*first_header_end == 0) {
+        // No headers
+        advance_view(2);
+        co_return co_await prepare_parse_body();
+    }
+
     auto headers_end_opt = co_await pull_until("\r\n\r\n");
     if (!headers_end_opt.has_value()) {
         co_return RequestParserError::READER_CLOSED;
@@ -141,8 +151,9 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_heade
     auto headers_end = headers_end_opt.value();
 
     // Copy the raw header string in the request for storing refrences to it in the headers map
-    m_req.m_raw_headers = std::string(m_view.substr(0, headers_end + 4));
-    auto headers = std::string_view(m_req.m_raw_headers);
+    m_req.m_raw_headers = std::make_unique<char[]>(headers_end + 4);
+    std::memcpy(m_req.m_raw_headers.get(), m_view.data(), headers_end + 4);
+    auto headers = std::string_view(m_req.m_raw_headers.get(), headers_end + 4);
 
     advance_view(headers_end + 4);
 

@@ -630,6 +630,7 @@ ASYNC_TEST_CASE("Many small headers exceeding limit") {
     for (int i = 0; i < 200; ++i) {
         data.push_back(std::format("H{}: v\r\n", i));
     }
+    data.push_back("\r\n");
 
     reader.set_data(data);
     auto result = co_await parser.next();

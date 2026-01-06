@@ -30,7 +30,7 @@ public:
     std::unordered_map<std::string, std::string> path_params;
 
 private:
-    std::string m_raw_headers;
+    std::unique_ptr<char[]> m_raw_headers;
 
     template<Reader R>
     friend class RequestParser;
