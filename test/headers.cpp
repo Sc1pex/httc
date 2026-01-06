@@ -1,5 +1,7 @@
 #include <httc/headers.h>
+#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
+#include <vector>
 
 TEST_CASE("Headers case-insensitive lookup") {
     httc::Headers headers;
@@ -8,34 +10,40 @@ TEST_CASE("Headers case-insensitive lookup") {
     headers.add("X-Custom-Header", "value1");
 
     SECTION("Get existing headers with different casing") {
-        auto ct = headers.get("content-type");
+        auto ct = headers.get_one("content-type");
         REQUIRE(ct.has_value());
         REQUIRE(ct.value() == "application/json");
 
-        auto cl = headers.get("CONTENT-LENGTH");
+        auto cl = headers.get_one("CONTENT-LENGTH");
         REQUIRE(cl.has_value());
         REQUIRE(cl.value() == "123");
 
-        auto xch = headers.get("X-CUSTOM-HEADER");
+        auto xch = headers.get_one("X-CUSTOM-HEADER");
         REQUIRE(xch.has_value());
         REQUIRE(xch.value() == "value1");
     }
 
     SECTION("Get non-existing header") {
-        auto non_exist = headers.get("Non-Exist");
+        auto non_exist = headers.get_one("Non-Exist");
         REQUIRE(!non_exist.has_value());
     }
 }
 
-TEST_CASE("Combine multiple headers with same name") {
+TEST_CASE("Multiple headers with same name") {
     httc::Headers headers;
-    headers.add("Set-Cookie", "id=123");
-    headers.add("set-cookie", "session=abc");
-    headers.add("SET-COOKIE", "theme=dark");
+    headers.add("Via", "1.1 vegur");
+    headers.add("via", "1.1 varnish");
 
-    auto sc = headers.get("Set-Cookie");
-    REQUIRE(sc.has_value());
-    REQUIRE(sc.value() == "id=123, session=abc, theme=dark");
+    auto range = headers.get("Via");
+
+    std::vector<std::string> values;
+    for (auto it = range.first; it != range.second; ++it) {
+        values.push_back(std::string(it->second));
+    }
+
+    REQUIRE(values.size() == 2);
+    REQUIRE(std::find(values.begin(), values.end(), "1.1 vegur") != values.end());
+    REQUIRE(std::find(values.begin(), values.end(), "1.1 varnish") != values.end());
 }
 
 TEST_CASE("Headers iterator interface") {

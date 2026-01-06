@@ -198,10 +198,10 @@ ASYNC_TEST_CASE("Parse headers") {
         const auto& req = result->value();
         REQUIRE(req.method == "GET");
         REQUIRE(req.uri.to_string() == "/index.html");
-        auto host = req.header("Host");
+        auto host = req.headers.get_one("Host");
         REQUIRE(host.has_value());
         REQUIRE(host.value() == "example.com");
-        auto user_agent = req.header("User-Agent");
+        auto user_agent = req.headers.get_one("User-Agent");
         REQUIRE(user_agent.has_value());
         REQUIRE(user_agent.value() == "TestAgent/1.0");
     }
@@ -247,7 +247,7 @@ ASYNC_TEST_CASE("Parse headers") {
         const auto& req = result->value();
         REQUIRE(req.method == "GET");
         REQUIRE(req.uri.to_string() == "/index.html");
-        auto header = req.header("X-Custom-Header");
+        auto header = req.headers.get_one("X-Custom-Header");
         REQUIRE(header.has_value());
         REQUIRE(header.value() == "value with spaces");
     }
@@ -264,7 +264,7 @@ ASYNC_TEST_CASE("Parse headers") {
         const auto& req = result->value();
         REQUIRE(req.method == "GET");
         REQUIRE(req.uri.to_string() == "/index.html");
-        auto header = req.header("X-Custom-Header");
+        auto header = req.headers.get_one("X-Custom-Header");
         REQUIRE(header.has_value());
         REQUIRE(header.value() == "value with spaces");
     }
@@ -317,7 +317,7 @@ ASYNC_TEST_CASE("Parse headers") {
         const auto& req = result->value();
         REQUIRE(req.method == "GET");
         REQUIRE(req.uri.to_string() == "/index.html");
-        auto header = req.header("X-Empty-Header");
+        auto header = req.headers.get_one("X-Empty-Header");
         REQUIRE(header.has_value());
         REQUIRE(header.value() == "");
     }
@@ -356,7 +356,7 @@ ASYNC_TEST_CASE("Parse Content-length bodies") {
         const auto& req = result->value();
         REQUIRE(req.method == "POST");
         REQUIRE(req.uri.to_string() == "/submit");
-        auto content_length = req.header("Content-Length");
+        auto content_length = req.headers.get_one("Content-Length");
         REQUIRE(content_length.has_value());
         REQUIRE(content_length.value() == "13");
         REQUIRE(req.body == "Hello, World!");
@@ -413,7 +413,7 @@ ASYNC_TEST_CASE("Parse chunked bodies") {
         const auto& req = result->value();
         REQUIRE(req.method == "POST");
         REQUIRE(req.uri.to_string() == "/submit");
-        auto transfer_encoding = req.header("Transfer-Encoding");
+        auto transfer_encoding = req.headers.get_one("Transfer-Encoding");
         REQUIRE(transfer_encoding.has_value());
         REQUIRE(transfer_encoding.value() == "chunked");
         REQUIRE(req.body == "Hello, World");
@@ -459,10 +459,10 @@ ASYNC_TEST_CASE("Parse chunked bodies") {
         const auto& req = result->value();
         auto trailers = req.trailers;
 
-        auto trailer_header = trailers.get("Trailer-Header");
+        auto trailer_header = trailers.get_one("Trailer-Header");
         REQUIRE(trailer_header.has_value());
         REQUIRE(trailer_header.value() == "TrailerValue");
-        auto other_trailer = trailers.get("Other-Trailer");
+        auto other_trailer = trailers.get_one("Other-Trailer");
         REQUIRE(other_trailer.has_value());
         REQUIRE(other_trailer.value() == "AnotherValue");
     }
@@ -485,7 +485,7 @@ ASYNC_TEST_CASE("Parse in multiple chunks") {
         const auto& req = result->value();
         CHECK(req.method == "GET");
         CHECK(req.uri.to_string() == "/index.html");
-        auto host = req.header("Host");
+        auto host = req.headers.get_one("Host");
         CHECK(host.has_value());
         CHECK(host.value() == "example.com");
 
@@ -507,7 +507,7 @@ ASYNC_TEST_CASE("Parse in multiple chunks") {
         const auto& req = result->value();
         CHECK(req.method == "POST");
         CHECK(req.uri.to_string() == "/submit");
-        auto content_length = req.header("Content-Length");
+        auto content_length = req.headers.get_one("Content-Length");
         CHECK(content_length.has_value());
         CHECK(content_length.value() == "13");
         CHECK(req.body == "Hello, World!");
@@ -534,7 +534,7 @@ ASYNC_TEST_CASE("Parse in multiple chunks") {
         const auto& req = result->value();
         CHECK(req.method == "POST");
         CHECK(req.uri.to_string() == "/submit");
-        auto transfer_encoding = req.header("Transfer-Encoding");
+        auto transfer_encoding = req.headers.get_one("Transfer-Encoding");
         CHECK(transfer_encoding.has_value());
         CHECK(transfer_encoding.value() == "chunked");
         CHECK(req.body == "Hello, World");
@@ -567,7 +567,7 @@ ASYNC_TEST_CASE("Multiple requests") {
     const auto& req1 = result1->value();
     REQUIRE(req1.method == "POST");
     REQUIRE(req1.uri.to_string() == "/abc");
-    auto content_length1 = req1.header("Content-Length");
+    auto content_length1 = req1.headers.get_one("Content-Length");
     REQUIRE(content_length1.has_value());
     REQUIRE(content_length1.value() == "5");
     REQUIRE(req1.body == "Hello");
@@ -578,7 +578,7 @@ ASYNC_TEST_CASE("Multiple requests") {
     const auto& req2 = result2->value();
     REQUIRE(req2.method == "POST");
     REQUIRE(req2.uri.to_string() == "/submit");
-    auto content_length2 = req2.header("Content-Length");
+    auto content_length2 = req2.headers.get_one("Content-Length");
     REQUIRE(content_length2.has_value());
     REQUIRE(content_length2.value() == "13");
     REQUIRE(req2.body == "Hello, World!");
