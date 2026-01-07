@@ -74,11 +74,11 @@ template<Reader R>
 asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_request_line() {
     std::size_t crlf;
     while (true) {
-        auto crlf_opt = co_await pull_until("\r\n");
-        if (!crlf_opt.has_value()) {
-            co_return RequestParserError::READER_CLOSED;
+        auto crlf_res = co_await pull_until("\r\n", m_max_headers_size);
+        if (!crlf_res.has_value()) {
+            co_return crlf_res.error();
         }
-        crlf = crlf_opt.value();
+        crlf = crlf_res.value();
 
         if (crlf == 0) {
             // https://www.rfc-editor.org/rfc/rfc9112.html#section-2.2-6
@@ -134,21 +134,23 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_reque
 
 template<Reader R>
 asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_headers() {
-    auto first_header_end = co_await pull_until("\r\n");
-    if (!first_header_end.has_value()) {
-        co_return RequestParserError::READER_CLOSED;
+    auto first_header_end_res =
+        co_await pull_until("\r\n", m_max_headers_size - m_current_headers_size);
+    if (!first_header_end_res.has_value()) {
+        co_return first_header_end_res.error();
     }
-    if (*first_header_end == 0) {
+    if (*first_header_end_res == 0) {
         // No headers
         advance_view(2);
         co_return co_await prepare_parse_body();
     }
 
-    auto headers_end_opt = co_await pull_until("\r\n\r\n");
-    if (!headers_end_opt.has_value()) {
-        co_return RequestParserError::READER_CLOSED;
+    auto headers_end_res =
+        co_await pull_until("\r\n\r\n", m_max_headers_size - m_current_headers_size);
+    if (!headers_end_res.has_value()) {
+        co_return headers_end_res.error();
     }
-    auto headers_end = headers_end_opt.value();
+    auto headers_end = headers_end_res.value();
 
     // Copy the raw header string in the request for storing refrences to it in the headers map
     m_req.m_raw_headers = std::make_unique<char[]>(headers_end + 4);
@@ -183,11 +185,11 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_heade
 template<Reader R>
 asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_chunked_trailers() {
     while (!m_view.empty()) {
-        auto crlf_opt = co_await pull_until("\r\n");
-        if (!crlf_opt.has_value()) {
-            co_return RequestParserError::READER_CLOSED;
+        auto crlf_res = co_await pull_until("\r\n", m_max_headers_size);
+        if (!crlf_res.has_value()) {
+            co_return crlf_res.error();
         }
-        auto crlf = crlf_opt.value();
+        auto crlf = crlf_res.value();
 
         std::string_view header_line = m_view.substr(0, crlf);
 
@@ -311,11 +313,11 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_body_
 
 template<Reader R>
 asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_body_chunked_size() {
-    auto crlf_opt = co_await pull_until("\r\n");
-    if (!crlf_opt.has_value()) {
-        co_return RequestParserError::READER_CLOSED;
+    auto crlf_res = co_await pull_until("\r\n", 1024, RequestParserError::INVALID_CHUNK_ENCODING);
+    if (!crlf_res.has_value()) {
+        co_return crlf_res.error();
     }
-    auto crlf = crlf_opt.value();
+    auto crlf = crlf_res.value();
 
     std::string_view size_line = m_view.substr(0, crlf);
     std::size_t chunk_size = 0;
@@ -388,16 +390,21 @@ void RequestParser<R>::advance_view(std::size_t n) {
 }
 
 template<Reader R>
-asio::awaitable<std::optional<std::size_t>> RequestParser<R>::pull_until(std::string_view chars) {
+asio::awaitable<std::expected<std::size_t, RequestParserError>>
+    RequestParser<R>::pull_until(std::string_view chars, std::size_t max_size, RequestParserError overflow_error) {
     while (true) {
         auto crlf = m_view.find(chars);
         if (crlf != std::string::npos) {
             co_return crlf;
         }
 
+        if (m_view.size() > max_size) {
+            co_return std::unexpected(overflow_error);
+        }
+
         auto data_opt = co_await m_reader.pull();
         if (!data_opt.has_value()) {
-            co_return std::nullopt;
+            co_return std::unexpected(RequestParserError::READER_CLOSED);
         }
 
         m_buffer.append(std::string(*data_opt));
