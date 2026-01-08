@@ -31,12 +31,12 @@ public:
     void add_view(std::string_view header, std::string_view value);
 
     // Returns the number of values stored
-    std::size_t size() const;
+    [[nodiscard]] std::size_t size() const;
 
     // Get the first value for the given header, or std::nullopt if not found.
-    std::optional<std::string_view> get_one(std::string_view header) const;
+    [[nodiscard]] std::optional<std::string_view> get_one(std::string_view header) const;
 
-    auto get(std::string_view header) const {
+    [[nodiscard]] auto get(std::string_view header) const {
         return m_map.equal_range(header);
     }
 

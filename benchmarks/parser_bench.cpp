@@ -1,5 +1,5 @@
 #include <httc/request_parser.hpp>
-#include <iostream>
+#include <print>
 #include <string>
 
 using namespace httc;
@@ -65,12 +65,12 @@ asio::awaitable<void> parser_benchmark(std::string_view size, int iterations) {
         }
     }
 
-    std::cout << total_header_len << std::endl;
+    std::println("{}", total_header_len);
 }
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        std::cerr << "Usage: parser_bench <sm|lg|xl> [iterations]\n";
+        std::println(stderr, "Usage: parser_bench <sm|lg|xl> [iterations]");
         return 1;
     }
 

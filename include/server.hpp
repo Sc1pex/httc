@@ -9,7 +9,7 @@
 namespace httc {
 
 void bind_and_listen(
-    const std::string& addr, unsigned int port, std::shared_ptr<Router> router,
+    std::string_view addr, unsigned int port, std::shared_ptr<Router> router,
     asio::io_context& io_ctx, const ServerConfig& config = {}
 );
 

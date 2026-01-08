@@ -19,16 +19,16 @@ class URI {
 public:
     URI() = delete;
 
-    static std::optional<URI> parse(std::string_view url_decoded);
+    [[nodiscard]] static std::optional<URI> parse(std::string_view url_decoded);
 
-    URIMatch match(const URI& other) const;
+    [[nodiscard]] URIMatch match(const URI& other) const;
 
-    const std::vector<std::string>& paths() const;
-    const std::vector<std::pair<std::string, std::string>>& query() const;
-    std::optional<std::string_view> query_param(std::string_view param) const;
+    [[nodiscard]] const std::vector<std::string>& paths() const;
+    [[nodiscard]] const std::vector<std::pair<std::string, std::string>>& query() const;
+    [[nodiscard]] std::optional<std::string_view> query_param(std::string_view param) const;
 
-    std::string to_string() const;
-    std::string path() const;
+    [[nodiscard]] std::string to_string() const;
+    [[nodiscard]] std::string path() const;
 
 private:
     URI(std::vector<std::string>&& paths, std::vector<std::pair<std::string, std::string>>&& query)

@@ -5,8 +5,8 @@ namespace httc {
 
 struct StatusCode {
 public:
-    static std::optional<StatusCode> from_int(int code);
-    static bool is_valid(int c);
+    [[nodiscard]] static std::optional<StatusCode> from_int(int code);
+    [[nodiscard]] static bool is_valid(int c);
 
     // 1xx Informational
     static const StatusCode CONTINUE;
