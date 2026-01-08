@@ -5,10 +5,10 @@
 #include <expected>
 #include <optional>
 #include <string_view>
-#include "headers.h"
-#include "request.h"
-#include "request_parser.h"
-#include "validation.h"
+#include "headers.hpp"
+#include "request.hpp"
+#include "request_parser.hpp"
+#include "validation.hpp"
 
 namespace httc {
 

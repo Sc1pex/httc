@@ -3,8 +3,8 @@
 #include <asio.hpp>
 #include <memory>
 #include <string>
-#include "router.h"
-#include "server_config.h"
+#include "router.hpp"
+#include "server_config.hpp"
 
 namespace httc {
 

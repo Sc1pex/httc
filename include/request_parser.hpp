@@ -2,9 +2,9 @@
 
 #include <asio.hpp>
 #include <expected>
-#include "reader.h"
-#include "request.h"
-#include "status.h"
+#include "reader.hpp"
+#include "request.hpp"
+#include "status.hpp"
 
 namespace httc {
 

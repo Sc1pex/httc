@@ -3,9 +3,9 @@
 #include <format>
 #include <string>
 #include <unordered_map>
-#include "headers.h"
-#include "reader.h"
-#include "uri.h"
+#include "headers.hpp"
+#include "reader.hpp"
+#include "uri.hpp"
 
 namespace httc {
 

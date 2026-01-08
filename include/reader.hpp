@@ -4,7 +4,7 @@
 #include <asio/ip/tcp.hpp>
 #include <expected>
 #include <string_view>
-#include "server_config.h"
+#include "server_config.hpp"
 
 namespace httc {
 

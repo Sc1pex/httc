@@ -1,8 +1,8 @@
-#include "uri.h"
+#include "uri.hpp"
 #include <optional>
 #include <print>
 #include <ranges>
-#include "percent_encoding.h"
+#include "percent_encoding.hpp"
 
 namespace httc {
 

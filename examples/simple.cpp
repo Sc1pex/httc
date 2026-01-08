@@ -1,5 +1,5 @@
-#include <httc/router.h>
-#include <httc/server.h>
+#include <httc/router.hpp>
+#include <httc/server.hpp>
 #include <asio.hpp>
 #include <print>
 

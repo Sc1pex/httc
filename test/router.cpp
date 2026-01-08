@@ -1,7 +1,7 @@
-#include <httc/request.h>
-#include <httc/response.h>
-#include <httc/router.h>
-#include <httc/status.h>
+#include <httc/request.hpp>
+#include <httc/response.hpp>
+#include <httc/router.hpp>
+#include <httc/status.hpp>
 #include <asio.hpp>
 #include <catch2/catch_test_macros.hpp>
 

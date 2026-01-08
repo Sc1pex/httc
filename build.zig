@@ -59,7 +59,7 @@ fn build_httc_lib(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std
 
     httc_lib.addIncludePath(b.path("include"));
     httc_lib.installHeadersDirectory(b.path("include"), "httc", .{
-        .include_extensions = &.{ ".h", ".tpp" },
+        .include_extensions = &.{ ".hpp", ".tpp" },
     });
     httc_lib.addCSourceFiles(.{
         .root = b.path("src"),

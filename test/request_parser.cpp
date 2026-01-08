@@ -1,8 +1,8 @@
-#include <httc/reader.h>
-#include <httc/request_parser.h>
+#include <httc/reader.hpp>
+#include <httc/request_parser.hpp>
 #include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
-#include "async_test.h"
+#include "async_test.hpp"
 
 const std::size_t MAX_HEADER_SIZE = 16 * 1024;
 const std::size_t MAX_BODY_SIZE = 10 * 1024 * 1024;

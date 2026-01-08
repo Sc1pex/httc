@@ -1,9 +1,9 @@
-#include <httc/headers.h>
-#include <httc/request.h>
-#include <httc/response.h>
-#include <httc/router.h>
-#include <httc/server.h>
-#include <httc/status.h>
+#include <httc/headers.hpp>
+#include <httc/request.hpp>
+#include <httc/response.hpp>
+#include <httc/router.hpp>
+#include <httc/server.hpp>
+#include <httc/status.hpp>
 #include <asio.hpp>
 #include <print>
 #include <string>
