@@ -53,6 +53,8 @@ private:
 
     void advance_view(std::size_t n);
 
+    std::optional<RequestParserError> add_cookies(std::string_view cookie_value);
+
     asio::awaitable<std::expected<std::size_t, RequestParserError>> pull_until(
         std::string_view chars, std::size_t max_size,
         RequestParserError overflow_error = RequestParserError::HEADER_TOO_LARGE

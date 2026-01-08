@@ -12,28 +12,8 @@ using namespace httc;
 
 // Simple manual cookie parser helper
 std::optional<std::string> get_cookie(const Request& req, std::string_view name) {
-    std::string search_key = std::string(name) + "=";
-
-    for (const auto& cookie_line : req.cookies) {
-        std::string_view cookies = cookie_line;
-        size_t start = 0;
-        while (start < cookies.length()) {
-            while (start < cookies.length() && cookies[start] == ' ') {
-                start++;
-            }
-
-            size_t end = cookies.find(';', start);
-            if (end == std::string_view::npos) {
-                end = cookies.length();
-            }
-
-            std::string_view cookie = cookies.substr(start, end - start);
-            if (cookie.starts_with(search_key)) {
-                return std::string(cookie.substr(search_key.length()));
-            }
-
-            start = end + 1;
-        }
+    if (req.cookies.contains(name)) {
+        return std::string(req.cookies.at(name));
     }
 
     return std::nullopt;

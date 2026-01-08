@@ -2,6 +2,7 @@
 
 #include <format>
 #include <string>
+#include <unordered_map>
 #include "headers.h"
 #include "reader.h"
 #include "uri.h"
@@ -24,7 +25,7 @@ public:
 
     Headers headers;
     Headers trailers;
-    std::vector<std::string> cookies;
+    std::unordered_map<std::string_view, std::string_view> cookies;
 
     std::string wildcard_path;
     std::unordered_map<std::string, std::string> path_params;

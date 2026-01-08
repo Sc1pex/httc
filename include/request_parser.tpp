@@ -241,7 +241,7 @@ asio::awaitable<std::optional<RequestParserError>>
             co_return RequestParserError::INVALID_HEADER;
         }
 
-        m_req.cookies.push_back(std::string(value));
+        co_return add_cookies(value);
     }
 
     try {
@@ -390,8 +390,43 @@ void RequestParser<R>::advance_view(std::size_t n) {
 }
 
 template<Reader R>
-asio::awaitable<std::expected<std::size_t, RequestParserError>>
-    RequestParser<R>::pull_until(std::string_view chars, std::size_t max_size, RequestParserError overflow_error) {
+std::optional<RequestParserError> RequestParser<R>::add_cookies(std::string_view cookie_value) {
+    for (;;) {
+        auto semicolon_pos = cookie_value.find(';');
+        std::string_view cookie_pair;
+        if (semicolon_pos == std::string::npos) {
+            cookie_pair = cookie_value;
+            cookie_value = "";
+        } else {
+            cookie_pair = cookie_value.substr(0, semicolon_pos);
+            // Skip semicolon and space
+            cookie_value = cookie_value.substr(semicolon_pos + 2);
+        }
+
+        auto equal_pos = cookie_pair.find('=');
+        if (equal_pos == std::string::npos) {
+            return RequestParserError::INVALID_HEADER;
+        }
+
+        std::string_view name = cookie_pair.substr(0, equal_pos);
+        std::string_view value = cookie_pair.substr(equal_pos + 1);
+
+        if (!valid_token(name) || !valid_cookie_value(value)) {
+            return RequestParserError::INVALID_HEADER;
+        }
+
+        m_req.cookies.emplace(name, value);
+
+        if (cookie_value.empty()) {
+            return std::nullopt;
+        }
+    }
+}
+
+template<Reader R>
+asio::awaitable<std::expected<std::size_t, RequestParserError>> RequestParser<R>::pull_until(
+    std::string_view chars, std::size_t max_size, RequestParserError overflow_error
+) {
     while (true) {
         auto crlf = m_view.find(chars);
         if (crlf != std::string::npos) {

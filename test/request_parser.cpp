@@ -655,8 +655,8 @@ ASYNC_TEST_CASE("Cookies") {
         REQUIRE(result.has_value());
         REQUIRE(result->has_value());
         const auto& req = result->value();
-        auto& cookies = req.cookies;
-        REQUIRE(cookies[0] == "sessionId=abc123");
+        const auto& cookies = req.cookies;
+        REQUIRE(cookies.at("sessionId") == "abc123");
         REQUIRE(cookies.size() == 1);
     }
 
@@ -672,9 +672,27 @@ ASYNC_TEST_CASE("Cookies") {
         REQUIRE(result.has_value());
         REQUIRE(result->has_value());
         const auto& req = result->value();
-        auto& cookies = req.cookies;
+        const auto& cookies = req.cookies;
         REQUIRE(cookies.size() == 2);
-        REQUIRE(cookies[0] == "sessionId=abc123");
-        REQUIRE(cookies[1] == "theme=light");
+        REQUIRE(cookies.at("sessionId") == "abc123");
+        REQUIRE(cookies.at("theme") == "light");
+    }
+
+    SECTION("Multiple cookies in one header") {
+        reader.set_data(
+            "GET / HTTP/1.1\r\n"
+            "Host: example.com\r\n"
+            "Cookie: sessionId=abc123; theme=light; lang=en\r\n"
+            "\r\n"
+        );
+        auto result = co_await parser.next();
+        REQUIRE(result.has_value());
+        REQUIRE(result->has_value());
+        const auto& req = result->value();
+        const auto& cookies = req.cookies;
+        REQUIRE(cookies.size() == 3);
+        REQUIRE(cookies.at("sessionId") == "abc123");
+        REQUIRE(cookies.at("theme") == "light");
+        REQUIRE(cookies.at("lang") == "en");
     }
 }
