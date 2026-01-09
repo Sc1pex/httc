@@ -1,22 +1,22 @@
 #pragma once
 
 #include <asio/awaitable.hpp>
-#include <asio/ip/tcp.hpp>
+#include <asio/buffer.hpp>
+#include <vector>
 #include "headers.hpp"
 #include "status.hpp"
 
 namespace httc {
 
+struct ResponseWriter {
+    virtual asio::awaitable<void> write(std::vector<asio::const_buffer>) = 0;
+    virtual ~ResponseWriter() = default;
+};
+
 class Response {
 public:
-    enum class State {
-        Uninitialized,
-        Stream,
-        Body,
-    };
-
-    Response(asio::ip::tcp::socket& sock, bool is_head_response = false);
-    static Response from_status(asio::ip::tcp::socket& sock, StatusCode status);
+    Response(ResponseWriter& writer, bool is_head_response = false);
+    static Response from_status(ResponseWriter& writer, StatusCode status);
 
     asio::awaitable<void> begin_stream();
     asio::awaitable<void> stream_chunk(std::string_view chunk);
@@ -32,10 +32,23 @@ public:
     Headers headers;
 
 private:
-    asio::ip::tcp::socket& m_sock;
+    enum class State {
+        Uninitialized,
+        Stream,
+        Body,
+    };
+
+    void generate_status_line();
+    std::vector<asio::const_buffer> response_head();
+
+private:
+    ResponseWriter& m_writer;
+
     std::string m_body;
     bool m_head;
     State m_state;
+
+    std::string m_status_line;
 
     std::vector<std::string> m_cookies;
 };

@@ -2,30 +2,50 @@
 #include <asio.hpp>
 #include <asio/awaitable.hpp>
 #include <asio/error_code.hpp>
-#include <stdexcept>
+#include <format>
 #include "status.hpp"
 
 namespace httc {
 
 using asio::awaitable;
-using asio::ip::tcp;
 
-template<typename... Args>
-awaitable<void>
-    async_write_fmt(tcp::socket& client, std::format_string<Args...> fmt, Args&&... args) {
-    auto s = std::format(fmt, std::forward<Args>(args)...);
-    co_await asio::async_write(client, asio::buffer(s), asio::use_awaitable);
+void Response::generate_status_line() {
+    m_status_line = std::format("HTTP/1.1 {}\r\n", status.code);
 }
 
-Response::Response(tcp::socket& sock, bool is_head_response) : m_sock(sock) {
+std::vector<asio::const_buffer> Response::response_head() {
+    std::vector<asio::const_buffer> buffers;
+
+    const static auto header_separator = asio::buffer(": ", 2);
+    const static auto crlf_buf = asio::buffer("\r\n", 2);
+
+    generate_status_line();
+    buffers.push_back(asio::buffer(m_status_line));
+    for (const auto& [key, value] : headers) {
+        buffers.push_back(asio::buffer(key));
+        buffers.push_back(header_separator);
+        buffers.push_back(asio::buffer(value));
+        buffers.push_back(crlf_buf);
+    }
+    for (const auto& cookie : m_cookies) {
+        buffers.push_back(asio::buffer("Set-Cookie"));
+        buffers.push_back(header_separator);
+        buffers.push_back(asio::buffer(cookie));
+    }
+    buffers.push_back(crlf_buf);
+
+    return buffers;
+}
+
+Response::Response(ResponseWriter& writer, bool is_head_response) : m_writer(writer) {
     m_head = is_head_response;
     status = StatusCode::OK;
     headers.set("Content-Length", "0");
     m_state = State::Uninitialized;
 }
 
-Response Response::from_status(tcp::socket& sock, StatusCode status) {
-    Response r(sock);
+Response Response::from_status(ResponseWriter& writer, StatusCode status) {
+    Response r(writer);
     r.status = status;
     return r;
 }
@@ -40,12 +60,8 @@ awaitable<void> Response::begin_stream() {
 
     m_state = State::Stream;
 
-    // Write first line and header
-    co_await async_write_fmt(m_sock, "HTTP/1.1 {}\r\n", status.code);
-    for (const auto& [key, value] : headers) {
-        co_await async_write_fmt(m_sock, "{}: {}\r\n", key, value);
-    }
-    co_await async_write_fmt(m_sock, "\r\n");
+    auto buffers = response_head();
+    co_return co_await m_writer.write(buffers);
 }
 
 awaitable<void> Response::stream_chunk(std::string_view chunk) {
@@ -58,8 +74,15 @@ awaitable<void> Response::stream_chunk(std::string_view chunk) {
         co_return;
     }
 
-    co_await async_write_fmt(m_sock, "{:X}\r\n", chunk.size());
-    co_await async_write_fmt(m_sock, "{}\r\n", chunk);
+    static const asio::const_buffer crlf_buf = asio::buffer("\r\n", 2);
+    auto chunk_size = std::format("{:X}\r\n", chunk.size());
+    co_return co_await m_writer.write(
+        {
+            asio::buffer(chunk_size),
+            asio::buffer(chunk),
+            crlf_buf,
+        }
+    );
 }
 
 awaitable<void> Response::end_stream() {
@@ -67,7 +90,8 @@ awaitable<void> Response::end_stream() {
         throw std::runtime_error("Response not in streaming state");
     }
 
-    co_await async_write_fmt(m_sock, "0\r\n\r\n");
+    static const asio::const_buffer final_chunk_buf = asio::buffer("0\r\n\r\n", 5);
+    co_return co_await m_writer.write({ final_chunk_buf });
 }
 
 awaitable<void> Response::send(Response&& res) {
@@ -76,17 +100,15 @@ awaitable<void> Response::send(Response&& res) {
         co_return;
     }
 
-    co_await async_write_fmt(res.m_sock, "HTTP/1.1 {}\r\n", res.status.code);
-    for (const auto& [key, value] : res.headers) {
-        co_await async_write_fmt(res.m_sock, "{}: {}\r\n", key, value);
+    if (res.m_body.empty()) {
+        res.headers.set_view("Content-Length", "0");
     }
-    for (const auto& cookie : res.m_cookies) {
-        co_await async_write_fmt(res.m_sock, "Set-Cookie: {}\r\n", cookie);
+
+    auto buffers = res.response_head();
+    if (!res.m_head) {
+        buffers.push_back(asio::buffer(res.m_body));
     }
-    co_await async_write_fmt(res.m_sock, "\r\n");
-    if (!res.m_body.empty()) {
-        co_await async_write_fmt(res.m_sock, "{}", res.m_body);
-    }
+    co_return co_await res.m_writer.write(buffers);
 }
 
 void Response::set_body(std::string_view body) {

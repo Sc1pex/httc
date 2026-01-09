@@ -11,10 +11,24 @@ using asio::awaitable;
 using asio::use_awaitable;
 using asio::ip::tcp;
 
+struct SocketResponseWriter : ResponseWriter {
+    SocketResponseWriter(asio::ip::tcp::socket& socket) : sock(socket) {
+    }
+
+    asio::awaitable<void> write(std::vector<asio::const_buffer> buffers) override {
+        co_await asio::async_write(sock, buffers, use_awaitable);
+    }
+
+private:
+    asio::ip::tcp::socket& sock;
+};
+
 awaitable<void>
     handle_conn(tcp::socket socket, std::shared_ptr<Router> router, const ServerConfig& cfg) {
     SocketReader reader{ socket, cfg };
     RequestParser req_parser{ cfg.max_header_size, cfg.max_body_size, reader };
+
+    SocketResponseWriter writer{ socket };
 
     while (true) {
         auto req_opt = co_await req_parser.next();
@@ -26,7 +40,7 @@ awaitable<void>
         auto req_result = std::move(*req_opt);
         if (!req_result.has_value()) {
             auto res =
-                Response::from_status(socket, parse_error_to_status_code(req_result.error()));
+                Response::from_status(writer, parse_error_to_status_code(req_result.error()));
             co_await Response::send(std::move(res));
             socket.close();
             co_return;
@@ -34,7 +48,7 @@ awaitable<void>
 
         bool success = false;
         try {
-            Response res{ socket };
+            Response res{ writer };
             auto req = std::move(req_result).value();
             co_await router->handle(req, res);
             co_await Response::send(std::move(res));
@@ -44,7 +58,7 @@ awaitable<void>
         }
 
         if (!success) {
-            auto res = Response::from_status(socket, StatusCode::INTERNAL_SERVER_ERROR);
+            auto res = Response::from_status(writer, StatusCode::INTERNAL_SERVER_ERROR);
             co_await Response::send(std::move(res));
             socket.close();
             co_return;
@@ -74,4 +88,5 @@ void bind_and_listen(
 
     asio::co_spawn(io_ctx, listen(std::move(acceptor), router, config), asio::detached);
 }
+
 }

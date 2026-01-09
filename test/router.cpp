@@ -1,17 +1,23 @@
+#include <asio.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <httc/request.hpp>
 #include <httc/response.hpp>
 #include <httc/router.hpp>
 #include <httc/status.hpp>
-#include <asio.hpp>
-#include <catch2/catch_test_macros.hpp>
 
 namespace methods = httc::methods;
 using asio::awaitable;
-using asio::ip::tcp;
+
+struct MockSocket : httc::ResponseWriter {
+    asio::awaitable<void> write(std::vector<asio::const_buffer> buffers) override {
+        // Discard all data
+        co_return;
+    }
+};
 
 httc::Response get_response(httc::Router& router, httc::Request& req) {
     asio::io_context io_context;
-    tcp::socket mock_sock{ io_context.get_executor() };
+    MockSocket mock_sock;
 
     httc::Response res{ mock_sock };
     auto future = asio::co_spawn(io_context, router.handle(req, res), asio::use_future);
@@ -52,11 +58,12 @@ TEST_CASE("Basic routing") {
     SECTION("Single path with method") {
         int called = 0;
         router.route(
-            "/test",
-            httc::MethodWrapper<"GET", "POST">([&](const httc::Request&, httc::Response&) -> awaitable<void> {
-                called++;
-                co_return;
-            })
+            "/test", httc::MethodWrapper<"GET", "POST">(
+                         [&](const httc::Request&, httc::Response&) -> awaitable<void> {
+                             called++;
+                             co_return;
+                         }
+                     )
         );
 
         httc::Request req;
@@ -91,11 +98,12 @@ TEST_CASE("Basic routing") {
             co_return;
         });
         router.route(
-            "/test",
-            httc::MethodWrapper<"GET", "POST">([&](const httc::Request&, httc::Response&) -> awaitable<void> {
-                called_method++;
-                co_return;
-            })
+            "/test", httc::MethodWrapper<"GET", "POST">(
+                         [&](const httc::Request&, httc::Response&) -> awaitable<void> {
+                             called_method++;
+                             co_return;
+                         }
+                     )
         );
 
         httc::Request req;
@@ -135,26 +143,29 @@ TEST_CASE("Routing collisions") {
         httc::URICollision
     );
 
-    router.route("/method_test", methods::get([](const httc::Request&, httc::Response&) -> awaitable<void> {
-                     co_return;
-                 }));
+    router.route(
+        "/method_test", methods::get([](const httc::Request&, httc::Response&) -> awaitable<void> {
+            co_return;
+        })
+    );
 
     REQUIRE_THROWS_AS(
         router.route(
-            "/method_test",
-            httc::MethodWrapper<"GET", "POST">([](const httc::Request&, httc::Response&) -> awaitable<void> {
-                co_return;
-            })
+            "/method_test", httc::MethodWrapper<"GET", "POST">(
+                                [](const httc::Request&, httc::Response&) -> awaitable<void> {
+                                    co_return;
+                                }
+                            )
         ),
         httc::URICollision
     );
 
     // Different method should be fine
-    REQUIRE_NOTHROW(
-        router.route("/method_test", methods::post([](const httc::Request&, httc::Response&) -> awaitable<void> {
-                         co_return;
-                     }))
-    );
+    REQUIRE_NOTHROW(router.route(
+        "/method_test", methods::post([](const httc::Request&, httc::Response&) -> awaitable<void> {
+            co_return;
+        })
+    ));
 }
 
 TEST_CASE("Invalid URIs") {
@@ -199,9 +210,11 @@ TEST_CASE("No matching route") {
     }
 
     SECTION("Path but no method") {
-        router.route("/test", methods::post([](const httc::Request&, httc::Response&) -> awaitable<void> {
-                         co_return;
-                     }));
+        router.route(
+            "/test", methods::post([](const httc::Request&, httc::Response&) -> awaitable<void> {
+                co_return;
+            })
+        );
 
         httc::Request req;
         req.method = "GET";
@@ -289,14 +302,18 @@ TEST_CASE("Complex routing 2") {
     asio::io_context io_context;
     std::unordered_map<int, int> call_count;
 
-    router.route("/a/b", methods::get([&](const httc::Request&, httc::Response&) -> awaitable<void> {
-                     call_count[0]++;
-                     co_return;
-                 }));
-    router.route("/a/:param", methods::post([&](const httc::Request&, httc::Response&) -> awaitable<void> {
-                     call_count[1]++;
-                     co_return;
-                 }));
+    router.route(
+        "/a/b", methods::get([&](const httc::Request&, httc::Response&) -> awaitable<void> {
+            call_count[0]++;
+            co_return;
+        })
+    );
+    router.route(
+        "/a/:param", methods::post([&](const httc::Request&, httc::Response&) -> awaitable<void> {
+            call_count[1]++;
+            co_return;
+        })
+    );
     router.route("/a/*", ([&](const httc::Request&, httc::Response&) -> awaitable<void> {
                      call_count[2]++;
                      co_return;
@@ -346,12 +363,14 @@ TEST_CASE("Param and wildcard extraction") {
     httc::Router router;
     asio::io_context io_context;
 
-    router.route("/files/:fileId/*", [](const httc::Request& req, httc::Response&) -> awaitable<void> {
-        REQUIRE(req.path_params.contains("fileId"));
-        REQUIRE(req.path_params.at("fileId") == "12345");
-        REQUIRE(req.wildcard_path == "path/to/file.txt");
-        co_return;
-    });
+    router.route(
+        "/files/:fileId/*", [](const httc::Request& req, httc::Response&) -> awaitable<void> {
+            REQUIRE(req.path_params.contains("fileId"));
+            REQUIRE(req.path_params.at("fileId") == "12345");
+            REQUIRE(req.wildcard_path == "path/to/file.txt");
+            co_return;
+        }
+    );
 
     httc::Request req;
     req.method = "GET";
@@ -377,10 +396,14 @@ TEST_CASE("Middleware") {
             co_await next(req, res);
             call_order.push_back(4);
         })
-        .route("/test", httc::MethodWrapper<"GET">([&](const httc::Request&, httc::Response&) -> awaitable<void> {
-                   call_order.push_back(3);
-                   co_return;
-               }));
+        .route(
+            "/test", httc::MethodWrapper<"GET">(
+                         [&](const httc::Request&, httc::Response&) -> awaitable<void> {
+                             call_order.push_back(3);
+                             co_return;
+                         }
+                     )
+        );
 
     SECTION("GET request") {
         httc::Request req;
