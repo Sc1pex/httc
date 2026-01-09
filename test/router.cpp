@@ -4,6 +4,7 @@
 #include <httc/response.hpp>
 #include <httc/router.hpp>
 #include <httc/status.hpp>
+#include "async_test.hpp"
 
 namespace methods = httc::methods;
 using asio::awaitable;
@@ -15,19 +16,14 @@ struct MockSocket : httc::Writer {
     }
 };
 
-httc::Response get_response(httc::Router& router, httc::Request& req) {
-    asio::io_context io_context;
+asio::awaitable<httc::Response> get_response(httc::Router& router, httc::Request& req) {
     MockSocket mock_sock;
-
     httc::Response res{ mock_sock };
-    auto future = asio::co_spawn(io_context, router.handle(req, res), asio::use_future);
-    io_context.run();
-    future.get();
-
-    return res;
+    co_await router.handle(req, res);
+    co_return res;
 }
 
-TEST_CASE("Basic routing") {
+ASYNC_TEST_CASE("Basic routing") {
     httc::Router router;
 
     SECTION("Single path no method") {
@@ -42,13 +38,13 @@ TEST_CASE("Basic routing") {
         req.uri = *httc::URI::parse("/test");
 
         {
-            auto res = get_response(router, req);
+            auto res = co_await get_response(router, req);
             REQUIRE(res.status.code == 200);
         }
 
         req.method = "Other method";
         {
-            auto res = get_response(router, req);
+            auto res = co_await get_response(router, req);
             REQUIRE(res.status.code == 200);
         }
 
@@ -71,19 +67,19 @@ TEST_CASE("Basic routing") {
         req.uri = *httc::URI::parse("/test");
 
         {
-            auto res = get_response(router, req);
+            auto res = co_await get_response(router, req);
             REQUIRE(res.status.code == 200);
         }
 
         req.method = "POST";
         {
-            auto res = get_response(router, req);
+            auto res = co_await get_response(router, req);
             REQUIRE(res.status.code == 200);
         }
 
         req.method = "Other method";
         {
-            auto res = get_response(router, req);
+            auto res = co_await get_response(router, req);
             REQUIRE(res.status.code == 405);
         }
 
@@ -110,17 +106,17 @@ TEST_CASE("Basic routing") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/test");
 
-        REQUIRE_NOTHROW(get_response(router, req));
+        co_await get_response(router, req);
         REQUIRE(called_method == 1);
         REQUIRE(called_global == 0);
 
         req.method = "POST";
-        REQUIRE_NOTHROW(get_response(router, req));
+        co_await get_response(router, req);
         REQUIRE(called_method == 2);
         REQUIRE(called_global == 0);
 
         req.method = "Other method";
-        REQUIRE_NOTHROW(get_response(router, req));
+        co_await get_response(router, req);
         REQUIRE(called_method == 2);
         REQUIRE(called_global == 1);
     }
@@ -192,9 +188,8 @@ TEST_CASE("Invalid URIs") {
     );
 }
 
-TEST_CASE("No matching route") {
+ASYNC_TEST_CASE("No matching route") {
     httc::Router router;
-    asio::io_context io_context;
 
     SECTION("No path") {
         router.route("/test", [](const httc::Request&, httc::Response&) -> awaitable<void> {
@@ -205,7 +200,7 @@ TEST_CASE("No matching route") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/nope");
 
-        auto res = get_response(router, req);
+        auto res = co_await get_response(router, req);
         REQUIRE(res.status.code == 404);
     }
 
@@ -220,14 +215,13 @@ TEST_CASE("No matching route") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/test");
 
-        auto res = get_response(router, req);
+        auto res = co_await get_response(router, req);
         REQUIRE(res.status.code == 405);
     }
 }
 
-TEST_CASE("Complex routing 1") {
+ASYNC_TEST_CASE("Complex routing 1") {
     httc::Router router;
-    asio::io_context io_context;
     std::unordered_map<int, int> call_count;
 
     router.route("/abc/def", [&](const httc::Request&, httc::Response&) -> awaitable<void> {
@@ -264,7 +258,7 @@ TEST_CASE("Complex routing 1") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/abc/def");
 
-        auto res = get_response(router, req);
+        auto res = co_await get_response(router, req);
         REQUIRE(res.status.code == 200);
         verify_called(0);
     }
@@ -273,7 +267,7 @@ TEST_CASE("Complex routing 1") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/abc/value");
 
-        auto res = get_response(router, req);
+        auto res = co_await get_response(router, req);
         REQUIRE(res.status.code == 200);
         verify_called(1);
     }
@@ -282,7 +276,7 @@ TEST_CASE("Complex routing 1") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/abc/abc/abc");
 
-        auto res = get_response(router, req);
+        auto res = co_await get_response(router, req);
         REQUIRE(res.status.code == 200);
         verify_called(3);
     }
@@ -291,15 +285,14 @@ TEST_CASE("Complex routing 1") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/abc/abc/very/deep/path");
 
-        auto res = get_response(router, req);
+        auto res = co_await get_response(router, req);
         REQUIRE(res.status.code == 200);
         verify_called(3);
     }
 }
 
-TEST_CASE("Complex routing 2") {
+ASYNC_TEST_CASE("Complex routing 2") {
     httc::Router router;
-    asio::io_context io_context;
     std::unordered_map<int, int> call_count;
 
     router.route(
@@ -335,7 +328,7 @@ TEST_CASE("Complex routing 2") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/a/b");
 
-        auto res = get_response(router, req);
+        auto res = co_await get_response(router, req);
         REQUIRE(res.status.code == 200);
         verify_called(0);
     }
@@ -344,7 +337,7 @@ TEST_CASE("Complex routing 2") {
         req.method = "POST";
         req.uri = *httc::URI::parse("/a/value");
 
-        auto res = get_response(router, req);
+        auto res = co_await get_response(router, req);
         REQUIRE(res.status.code == 200);
         verify_called(1);
     }
@@ -353,15 +346,14 @@ TEST_CASE("Complex routing 2") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/a/anything/here");
 
-        auto res = get_response(router, req);
+        auto res = co_await get_response(router, req);
         REQUIRE(res.status.code == 200);
         verify_called(2);
     }
 }
 
-TEST_CASE("Param and wildcard extraction") {
+ASYNC_TEST_CASE("Param and wildcard extraction") {
     httc::Router router;
-    asio::io_context io_context;
 
     router.route(
         "/files/:fileId/*", [](const httc::Request& req, httc::Response&) -> awaitable<void> {
@@ -376,13 +368,12 @@ TEST_CASE("Param and wildcard extraction") {
     req.method = "GET";
     req.uri = *httc::URI::parse("/files/12345/path/to/file.txt");
 
-    auto res = get_response(router, req);
+    auto res = co_await get_response(router, req);
     REQUIRE(res.status.code == 200);
 }
 
-TEST_CASE("Middleware") {
+ASYNC_TEST_CASE("Middleware") {
     httc::Router router;
-    asio::io_context io_context;
     std::vector<int> call_order;
 
     router
@@ -410,7 +401,7 @@ TEST_CASE("Middleware") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/test");
 
-        auto res = get_response(router, req);
+        auto res = co_await get_response(router, req);
         REQUIRE(res.status.code == 200);
 
         REQUIRE(call_order.size() == 5);
@@ -425,7 +416,7 @@ TEST_CASE("Middleware") {
         req.uri = *httc::URI::parse("/test");
         call_order.clear();
 
-        auto res = get_response(router, req);
+        auto res = co_await get_response(router, req);
         REQUIRE(res.status.code == 200);
         REQUIRE(call_order.size() == 4);
         REQUIRE(call_order[0] == 1);
