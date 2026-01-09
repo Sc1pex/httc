@@ -65,8 +65,8 @@ fn build_httc_lib(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std
         .root = b.path("src"),
         .files = &.{
             "headers.cpp",
+            "io.cpp",
             "percent_encoding.cpp",
-            "reader.cpp",
             "request.cpp",
             "request_parser.cpp",
             "response.cpp",

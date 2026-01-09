@@ -1,7 +1,7 @@
 #include "server.hpp"
 #include <asio.hpp>
 #include <print>
-#include "reader.hpp"
+#include "io.hpp"
 #include "request_parser.hpp"
 #include "response.hpp"
 
@@ -11,24 +11,12 @@ using asio::awaitable;
 using asio::use_awaitable;
 using asio::ip::tcp;
 
-struct SocketResponseWriter : ResponseWriter {
-    SocketResponseWriter(asio::ip::tcp::socket& socket) : sock(socket) {
-    }
-
-    asio::awaitable<void> write(std::vector<asio::const_buffer> buffers) override {
-        co_await asio::async_write(sock, buffers, use_awaitable);
-    }
-
-private:
-    asio::ip::tcp::socket& sock;
-};
-
 awaitable<void>
     handle_conn(tcp::socket socket, std::shared_ptr<Router> router, const ServerConfig& cfg) {
     SocketReader reader{ socket, cfg };
     RequestParser req_parser{ cfg.max_header_size, cfg.max_body_size, reader };
 
-    SocketResponseWriter writer{ socket };
+    SocketWriter writer{ socket };
 
     while (true) {
         auto req_opt = co_await req_parser.next();

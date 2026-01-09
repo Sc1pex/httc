@@ -1,4 +1,4 @@
-#include "reader.hpp"
+#include "io.hpp"
 #include <asio.hpp>
 
 namespace httc {
@@ -38,6 +38,13 @@ asio::awaitable<std::expected<std::string_view, ReaderError>> SocketReader::pull
     }
 
     co_return std::string_view(m_buffer.data(), n);
+}
+
+SocketWriter::SocketWriter(asio::ip::tcp::socket& socket) : m_sock(socket) {
+}
+
+asio::awaitable<void> SocketWriter::write(std::vector<asio::const_buffer> buffers) {
+    co_await asio::async_write(m_sock, buffers, asio::use_awaitable);
 }
 
 }

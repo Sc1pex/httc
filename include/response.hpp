@@ -1,22 +1,15 @@
 #pragma once
 
-#include <asio/awaitable.hpp>
-#include <asio/buffer.hpp>
-#include <vector>
 #include "headers.hpp"
+#include "io.hpp"
 #include "status.hpp"
 
 namespace httc {
 
-struct ResponseWriter {
-    virtual asio::awaitable<void> write(std::vector<asio::const_buffer>) = 0;
-    virtual ~ResponseWriter() = default;
-};
-
 class Response {
 public:
-    Response(ResponseWriter& writer, bool is_head_response = false);
-    static Response from_status(ResponseWriter& writer, StatusCode status);
+    Response(Writer& writer, bool is_head_response = false);
+    static Response from_status(Writer& writer, StatusCode status);
 
     asio::awaitable<void> begin_stream();
     asio::awaitable<void> stream_chunk(std::string_view chunk);
@@ -42,7 +35,7 @@ private:
     std::vector<asio::const_buffer> response_head();
 
 private:
-    ResponseWriter& m_writer;
+    Writer& m_writer;
 
     std::string m_body;
     bool m_head;

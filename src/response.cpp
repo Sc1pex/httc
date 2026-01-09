@@ -37,14 +37,14 @@ std::vector<asio::const_buffer> Response::response_head() {
     return buffers;
 }
 
-Response::Response(ResponseWriter& writer, bool is_head_response) : m_writer(writer) {
+Response::Response(Writer& writer, bool is_head_response) : m_writer(writer) {
     m_head = is_head_response;
     status = StatusCode::OK;
     headers.set("Content-Length", "0");
     m_state = State::Uninitialized;
 }
 
-Response Response::from_status(ResponseWriter& writer, StatusCode status) {
+Response Response::from_status(Writer& writer, StatusCode status) {
     Response r(writer);
     r.status = status;
     return r;
