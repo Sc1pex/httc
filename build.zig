@@ -118,6 +118,7 @@ fn build_tests(
             "headers.cpp",
             "percent_encoding.cpp",
             "request_parser.cpp",
+            "response.cpp",
             "router.cpp",
             "status.cpp",
             "uri.cpp",
