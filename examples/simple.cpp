@@ -1,6 +1,6 @@
+#include <asio.hpp>
 #include <httc/router.hpp>
 #include <httc/server.hpp>
-#include <asio.hpp>
 #include <print>
 
 int main() {

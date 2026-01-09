@@ -1,5 +1,5 @@
-#include <httc/percent_encoding.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <httc/percent_encoding.hpp>
 
 TEST_CASE("Percent decode valid sequences") {
     SECTION("Basic percent decoding") {

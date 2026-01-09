@@ -1,5 +1,5 @@
-#include <httc/status.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <httc/status.hpp>
 
 TEST_CASE("StatusCode constexpr", "[status]") {
     constexpr auto ok = httc::StatusCode::OK;

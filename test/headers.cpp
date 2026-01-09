@@ -1,6 +1,6 @@
-#include <httc/headers.hpp>
 #include <algorithm>
 #include <catch2/catch_test_macros.hpp>
+#include <httc/headers.hpp>
 #include <vector>
 
 TEST_CASE("Headers case-insensitive lookup") {
