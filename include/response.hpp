@@ -11,24 +11,63 @@ public:
     Response(Writer& writer, bool is_head_response = false);
     static Response from_status(Writer& writer, StatusCode status);
 
-    asio::awaitable<void> begin_stream();
-    asio::awaitable<void> stream_chunk(std::string_view chunk);
-    asio::awaitable<void> end_stream();
+    class ChunkedStream {
+    public:
+        // If the chunk is not empty, writes immediately
+        // Otherwise does nothing
+        asio::awaitable<void> write(std::string_view chunk);
 
-    void set_body(std::string_view body);
+        // Sends 0 sized chunk to end the stream
+        asio::awaitable<void> end();
 
-    static asio::awaitable<void> send(Response&& res);
+    private:
+        friend class Response;
+        Response& m_parent;
+        ChunkedStream(Response& parent) : m_parent(parent) {
+        }
+    };
+
+    class FixedStream {
+    public:
+        asio::awaitable<void> write(std::string_view data);
+
+    private:
+        friend class Response;
+        Response& m_parent;
+        FixedStream(Response& parent) : m_parent(parent) {
+        }
+    };
+
+    // Send request head with Transfer-Encoding: chunked
+    // Returns a writer to push more chunks
+    asio::awaitable<ChunkedStream> send_chunked();
+
+    // Send request head with Content-Length set
+    // Returns a writer to push data in packets
+    asio::awaitable<FixedStream> send_fixed(std::size_t content_size);
 
     void add_cookie(std::string cookie);
 
+    void set_body(std::string_view body);
+
+    // Should not be called by handlers
+    asio::awaitable<void> send();
+
     StatusCode status;
     Headers headers;
+    std::vector<std::string> cookies;
+
+    bool is_head() {
+        return m_head;
+    }
 
 private:
     enum class State {
         Uninitialized,
-        Stream,
+        StreamChunk,
+        StreamFixed,
         Body,
+        Sent,
     };
 
     void generate_status_line();
@@ -42,8 +81,5 @@ private:
     State m_state;
 
     std::string m_status_line;
-
-    std::vector<std::string> m_cookies;
 };
-
 }

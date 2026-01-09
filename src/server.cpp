@@ -29,7 +29,7 @@ awaitable<void>
         if (!req_result.has_value()) {
             auto res =
                 Response::from_status(writer, parse_error_to_status_code(req_result.error()));
-            co_await Response::send(std::move(res));
+            co_await res.send();
             socket.close();
             co_return;
         }
@@ -39,7 +39,7 @@ awaitable<void>
             Response res{ writer };
             auto req = std::move(req_result).value();
             co_await router->handle(req, res);
-            co_await Response::send(std::move(res));
+            co_await res.send();
             success = true;
         } catch (std::exception& e) {
             std::println("Error handling request: {}", e.what());
@@ -47,7 +47,7 @@ awaitable<void>
 
         if (!success) {
             auto res = Response::from_status(writer, StatusCode::INTERNAL_SERVER_ERROR);
-            co_await Response::send(std::move(res));
+            co_await res.send();
             socket.close();
             co_return;
         }
