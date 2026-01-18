@@ -7,9 +7,9 @@
 #include <string_view>
 #include <utility>
 #include <vector>
-#include "request.hpp"
-#include "response.hpp"
-#include "uri.hpp"
+#include "httc/request.hpp"
+#include "httc/response.hpp"
+#include "httc/uri.hpp"
 
 namespace httc {
 

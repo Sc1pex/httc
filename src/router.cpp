@@ -1,7 +1,7 @@
-#include "router.hpp"
-#include "request.hpp"
-#include "response.hpp"
-#include "status.hpp"
+#include "httc/router.hpp"
+#include "httc/request.hpp"
+#include "httc/response.hpp"
+#include "httc/status.hpp"
 
 namespace httc {
 
@@ -75,10 +75,11 @@ asio::awaitable<void>
         }
     }
 
+    auto& mw_vec = m_middleware;
     size_t middleware_idx = 0;
     auto run_middleware = [&](this const auto& self) -> asio::awaitable<void> {
-        if (middleware_idx < m_middleware.size()) {
-            auto& mw = m_middleware[middleware_idx];
+        if (middleware_idx < mw_vec.size()) {
+            auto& mw = mw_vec[middleware_idx];
             middleware_idx++;
             co_await mw(req, res, [&](const Request&, Response&) -> asio::awaitable<void> {
                 co_await self();

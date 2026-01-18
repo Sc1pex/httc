@@ -1,8 +1,8 @@
 #pragma once
 
-#include "headers.hpp"
-#include "io.hpp"
-#include "status.hpp"
+#include "httc/headers.hpp"
+#include "httc/io.hpp"
+#include "httc/status.hpp"
 
 namespace httc {
 

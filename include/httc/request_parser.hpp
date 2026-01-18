@@ -5,11 +5,11 @@
 #include <expected>
 #include <optional>
 #include <string_view>
-#include "headers.hpp"
-#include "io.hpp"
-#include "request.hpp"
-#include "status.hpp"
-#include "validation.hpp"
+#include "httc/headers.hpp"
+#include "httc/io.hpp"
+#include "httc/request.hpp"
+#include "httc/status.hpp"
+#include "httc/validation.hpp"
 
 namespace httc {
 

@@ -1,5 +1,6 @@
-#include "headers.hpp"
-#include "validation.hpp"
+#include "httc/headers.hpp"
+#include "httc/validation.hpp"
+#include <stdexcept>
 
 namespace httc {
 
