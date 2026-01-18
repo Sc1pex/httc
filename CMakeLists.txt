@@ -9,14 +9,20 @@ project(
 include(FetchContent)
 
 FetchContent_Declare(
-  asio
-  GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
-  GIT_TAG        asio-1-30-2
+    asio
+    GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
+    GIT_TAG        asio-1-30-2
 )
 FetchContent_MakeAvailable(asio)
+
+option(HTTC_BUILD_EXAMPLES "Build examples" ${PROJECT_IS_TOP_LEVEL})
 
 add_library(asio INTERFACE)
 target_include_directories(asio INTERFACE ${asio_SOURCE_DIR}/asio/include)
 target_compile_definitions(asio INTERFACE ASIO_STANDALONE)
 
 add_subdirectory(src)
+
+if(HTTC_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
