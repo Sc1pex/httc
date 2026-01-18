@@ -16,6 +16,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(asio)
 
 option(HTTC_BUILD_EXAMPLES "Build examples" ${PROJECT_IS_TOP_LEVEL})
+option(HTTC_BUILD_TESTS "Build tests" ${PROJECT_IS_TOP_LEVEL})
 
 add_library(asio INTERFACE)
 target_include_directories(asio INTERFACE ${asio_SOURCE_DIR}/asio/include)
@@ -25,4 +26,16 @@ add_subdirectory(src)
 
 if(HTTC_BUILD_EXAMPLES)
     add_subdirectory(examples)
+endif()
+
+if(HTTC_BUILD_TESTS)
+    FetchContent_Declare(
+        Catch2
+        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+        GIT_TAG        v3.12.0
+    )
+    FetchContent_MakeAvailable(Catch2)
+    
+    enable_testing()
+    add_subdirectory(test)
 endif()
