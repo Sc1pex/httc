@@ -1,6 +1,6 @@
 #include "httc/headers.hpp"
-#include "httc/validation.hpp"
 #include <stdexcept>
+#include "httc/validation.hpp"
 
 namespace httc {
 
