@@ -8,31 +8,16 @@ SocketReader::SocketReader(asio::ip::tcp::socket& socket, const ServerConfig& cf
 }
 
 asio::awaitable<std::expected<std::string_view, ReaderError>> SocketReader::pull() {
-    asio::steady_timer timer(co_await asio::this_coro::executor);
-    bool timeout_occurred = false;
-
-    timer.expires_after(m_cfg.request_timeout_seconds);
-    timer.async_wait([&](const asio::error_code& ec) {
-        if (!ec) {
-            timeout_occurred = true;
-            m_sock.cancel();
-        }
-    });
-
     std::size_t n = 0;
     asio::error_code ec;
     n = co_await m_sock.async_read_some(
         asio::buffer(m_buffer), asio::redirect_error(asio::use_awaitable, ec)
     );
 
-    timer.cancel();
-
-    if (timeout_occurred) {
-        co_return std::unexpected(ReaderError::TIMEOUT);
-    }
-
     if (ec == asio::error::eof) {
         co_return std::unexpected(ReaderError::CLOSED);
+    } else if (ec == asio::error::operation_aborted) {
+        co_return std::unexpected(ReaderError::TIMEOUT);
     } else if (ec) {
         co_return std::unexpected(ReaderError::UNKNOWN);
     }
@@ -46,5 +31,4 @@ SocketWriter::SocketWriter(asio::ip::tcp::socket& socket) : m_sock(socket) {
 asio::awaitable<void> SocketWriter::write(std::vector<asio::const_buffer> buffers) {
     co_await asio::async_write(m_sock, buffers, asio::use_awaitable);
 }
-
 }

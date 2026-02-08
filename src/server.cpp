@@ -1,5 +1,6 @@
 #include "httc/server.hpp"
 #include <asio.hpp>
+#include <asio/experimental/awaitable_operators.hpp>
 #include <print>
 #include "httc/io.hpp"
 #include "httc/request_parser.hpp"
@@ -11,6 +12,8 @@ using asio::awaitable;
 using asio::use_awaitable;
 using asio::ip::tcp;
 
+using namespace asio::experimental::awaitable_operators;
+
 awaitable<void>
     handle_conn(tcp::socket socket, std::shared_ptr<Router> router, const ServerConfig& cfg) {
     SocketReader reader{ socket, cfg };
@@ -18,8 +21,22 @@ awaitable<void>
 
     SocketWriter writer{ socket };
 
+    asio::steady_timer parse_request_timer(co_await asio::this_coro::executor);
+
     while (true) {
-        auto req_opt = co_await req_parser.next();
+        parse_request_timer.expires_after(cfg.request_timeout_seconds);
+
+        auto result =
+            co_await (req_parser.next() || parse_request_timer.async_wait(asio::use_awaitable));
+        std::optional<std::expected<httc::Request, httc::RequestParserError>> req_opt;
+        if (result.index() == 1) {
+            // Request timeout
+            socket.shutdown(tcp::socket::shutdown_both);
+            co_return;
+        } else {
+            req_opt = std::move(std::get<0>(result));
+        }
+
         if (!req_opt.has_value()) {
             // Connection closed
             break;
