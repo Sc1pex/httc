@@ -138,9 +138,7 @@ asio::awaitable<std::optional<ParseResult>> RequestParser<R>::next() {
         }
     }
 
-    // Create new buffer with remaining data
-    std::string remaining_data = std::string(m_view.data(), m_view.size());
-    m_buffer = std::move(remaining_data);
+    m_buffer.erase(0, m_view_start);
     m_view_start = 0;
     m_view = std::string_view(m_buffer.data(), m_buffer.size());
 
@@ -380,7 +378,7 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_body_
         if (!data_opt.has_value()) {
             co_return RequestParserError::READER_CLOSED;
         }
-        m_buffer.append(std::string(*data_opt));
+        m_buffer.append(*data_opt);
         m_view = std::string_view(m_buffer.data() + m_view_start, m_buffer.size() - m_view_start);
     }
 
@@ -423,7 +421,7 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_body_
         if (!data_opt.has_value()) {
             co_return RequestParserError::READER_CLOSED;
         }
-        m_buffer.append(std::string(*data_opt));
+        m_buffer.append(*data_opt);
         m_view = std::string_view(m_buffer.data() + m_view_start, m_buffer.size() - m_view_start);
     }
 
@@ -521,7 +519,7 @@ asio::awaitable<std::expected<std::size_t, RequestParserError>> RequestParser<R>
             co_return std::unexpected(RequestParserError::READER_CLOSED);
         }
 
-        m_buffer.append(std::string(*data_opt));
+        m_buffer.append(*data_opt);
         m_view = std::string_view(m_buffer.data() + m_view_start, m_buffer.size() - m_view_start);
     }
 }
