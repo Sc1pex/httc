@@ -6,7 +6,7 @@
 #include <expected>
 #include <string_view>
 #include <vector>
-#include "server_config.hpp"
+#include "httc/server_config.hpp"
 
 namespace httc {
 

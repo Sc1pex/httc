@@ -3,9 +3,9 @@
 #include <format>
 #include <string>
 #include <unordered_map>
-#include "headers.hpp"
-#include "io.hpp"
-#include "uri.hpp"
+#include "httc/headers.hpp"
+#include "httc/io.hpp"
+#include "httc/uri.hpp"
 
 namespace httc {
 

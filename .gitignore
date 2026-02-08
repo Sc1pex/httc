@@ -1,5 +1,2 @@
 .cache/
-cdb-frags/
-.zig-cache/
-zig-out/
-compile_commands.json
+build*/
