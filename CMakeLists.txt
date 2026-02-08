@@ -17,6 +17,7 @@ FetchContent_MakeAvailable(asio)
 
 option(HTTC_BUILD_EXAMPLES "Build examples" ${PROJECT_IS_TOP_LEVEL})
 option(HTTC_BUILD_TESTS "Build tests" ${PROJECT_IS_TOP_LEVEL})
+option(HTTC_BUILD_BENCHMARKS "Build benchmarks" OFF)
 
 add_library(asio INTERFACE)
 target_include_directories(asio INTERFACE ${asio_SOURCE_DIR}/asio/include)
@@ -26,6 +27,10 @@ add_subdirectory(src)
 
 if(HTTC_BUILD_EXAMPLES)
     add_subdirectory(examples)
+endif()
+
+if(HTTC_BUILD_BENCHMARKS)
+    add_subdirectory(benchmarks)
 endif()
 
 if(HTTC_BUILD_TESTS)
