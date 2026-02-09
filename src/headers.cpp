@@ -1,8 +1,21 @@
 #include "httc/headers.hpp"
+#include <cstring>
 #include <stdexcept>
 #include "httc/validation.hpp"
 
 namespace httc {
+
+Headers::Headers() : m_pool(std::make_unique<std::pmr::monotonic_buffer_resource>()) {
+}
+Headers::Headers(Headers&&) noexcept = default;
+Headers& Headers::operator=(Headers&&) noexcept = default;
+Headers::~Headers() = default;
+
+std::string_view Headers::allocate_string(std::string_view sv) {
+    void* ptr = m_pool->allocate(sv.size());
+    std::memcpy(ptr, sv.data(), sv.size());
+    return std::string_view(static_cast<char*>(ptr), sv.size());
+}
 
 void Headers::set(std::string header, std::string value) {
     if (!valid_token(header)) {
@@ -14,11 +27,8 @@ void Headers::set(std::string header, std::string value) {
 
     unset(header);
 
-    m_owned_strings.push_back(std::move(header));
-    m_owned_strings.push_back(std::move(value));
-
-    std::string_view header_view = m_owned_strings[m_owned_strings.size() - 2];
-    std::string_view value_view = m_owned_strings[m_owned_strings.size() - 1];
+    std::string_view header_view = allocate_string(header);
+    std::string_view value_view = allocate_string(value);
 
     m_map.emplace(header_view, value_view);
 }
@@ -41,11 +51,8 @@ void Headers::add(std::string header, std::string value) {
         throw std::invalid_argument("Invalid header value");
     }
 
-    m_owned_strings.push_back(std::move(header));
-    m_owned_strings.push_back(std::move(value));
-
-    std::string_view header_view = m_owned_strings[m_owned_strings.size() - 2];
-    std::string_view value_view = m_owned_strings[m_owned_strings.size() - 1];
+    std::string_view header_view = allocate_string(header);
+    std::string_view value_view = allocate_string(value);
 
     m_map.emplace(header_view, value_view);
 }

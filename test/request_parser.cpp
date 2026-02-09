@@ -457,12 +457,12 @@ ASYNC_TEST_CASE("Parse chunked bodies") {
         REQUIRE(result->has_value());
 
         const auto& req = result->value();
-        auto trailers = req.trailers;
+        auto trailers = &req.trailers;
 
-        auto trailer_header = trailers.get_one("Trailer-Header");
+        auto trailer_header = trailers->get_one("Trailer-Header");
         REQUIRE(trailer_header.has_value());
         REQUIRE(trailer_header.value() == "TrailerValue");
-        auto other_trailer = trailers.get_one("Other-Trailer");
+        auto other_trailer = trailers->get_one("Other-Trailer");
         REQUIRE(other_trailer.has_value());
         REQUIRE(other_trailer.value() == "AnotherValue");
     }

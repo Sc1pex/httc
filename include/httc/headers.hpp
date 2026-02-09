@@ -1,7 +1,8 @@
 #pragma once
 
-#include <deque>
 #include <format>
+#include <memory>
+#include <memory_resource>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -11,6 +12,11 @@ namespace httc {
 
 class Headers {
 public:
+    Headers();
+    Headers(Headers&&) noexcept;
+    Headers& operator=(Headers&&) noexcept;
+    ~Headers();
+
     // Set a header, replacing any existing entries with the same name.
     void set(std::string header, std::string value);
 
@@ -126,11 +132,14 @@ public:
     }
 
 private:
+    std::string_view allocate_string(std::string_view sv);
+
+private:
     std::unordered_multimap<
         std::string_view, std::string_view, CaseInsensitiveHash, CaseInsensitiveSearch>
         m_map;
 
-    std::deque<std::string> m_owned_strings;
+    std::unique_ptr<std::pmr::monotonic_buffer_resource> m_pool;
     friend struct std::formatter<Headers>;
 };
 
