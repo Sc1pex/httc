@@ -7,9 +7,22 @@
 namespace httc {
 
 class Response {
+    using WriteFn = asio::awaitable<void>(*)(void*, std::vector<asio::const_buffer>);
+
 public:
-    Response(Writer& writer, bool is_head_response = false);
-    static Response from_status(Writer& writer, StatusCode status);
+    template<Writer W>
+    Response(W& writer, bool is_head_response = false)
+    : m_writer_ptr(&writer),
+      m_write_fn([](void* w, std::vector<asio::const_buffer> b) -> asio::awaitable<void> {
+          return static_cast<W*>(w)->write(std::move(b));
+      }),
+      m_head(is_head_response) {
+        status = StatusCode::OK;
+        headers.set("Content-Length", "0");
+        m_state = State::Uninitialized;
+    }
+
+    static Response from_status(SocketWriter& writer, StatusCode status);
 
     class ChunkedStream {
     public:
@@ -71,9 +84,11 @@ private:
     };
 
     void generate_head();
+    asio::awaitable<void> write_to_writer(std::vector<asio::const_buffer> buffers);
 
 private:
-    Writer& m_writer;
+    void* m_writer_ptr;
+    WriteFn m_write_fn;
 
     std::string m_body;
     bool m_head;

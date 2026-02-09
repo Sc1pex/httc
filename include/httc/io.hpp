@@ -21,9 +21,9 @@ concept Reader = requires(T t) {
     { t.pull() } -> std::same_as<asio::awaitable<std::expected<std::string_view, ReaderError>>>;
 };
 
-struct Writer {
-    virtual asio::awaitable<void> write(std::vector<asio::const_buffer> buffers) = 0;
-    virtual ~Writer() = default;
+template<typename T>
+concept Writer = requires(T t, std::vector<asio::const_buffer> b) {
+    { t.write(b) } -> std::same_as<asio::awaitable<void>>;
 };
 
 class SocketReader {
@@ -37,10 +37,10 @@ private:
     const ServerConfig& m_cfg;
 };
 
-class SocketWriter : public Writer {
+class SocketWriter {
 public:
     SocketWriter(asio::ip::tcp::socket& socket);
-    asio::awaitable<void> write(std::vector<asio::const_buffer> buffers) override;
+    asio::awaitable<void> write(std::vector<asio::const_buffer> buffers);
 
 private:
     asio::ip::tcp::socket& m_sock;

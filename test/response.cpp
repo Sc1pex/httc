@@ -7,11 +7,11 @@
 
 using namespace httc;
 
-struct MockWriter : public Writer {
+struct MockWriter {
     std::string output;
     std::vector<std::string> writes;
 
-    asio::awaitable<void> write(std::vector<asio::const_buffer> buffers) override {
+    asio::awaitable<void> write(std::vector<asio::const_buffer> buffers) {
         std::string current_write;
         for (const auto& buf : buffers) {
             std::string_view part(static_cast<const char*>(buf.data()), buf.size());

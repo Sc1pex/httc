@@ -9,8 +9,8 @@
 namespace methods = httc::methods;
 using asio::awaitable;
 
-struct MockSocket : httc::Writer {
-    asio::awaitable<void> write(std::vector<asio::const_buffer> buffers) override {
+struct MockSocket {
+    asio::awaitable<void> write(std::vector<asio::const_buffer> buffers) {
         // Discard all data
         co_return;
     }
