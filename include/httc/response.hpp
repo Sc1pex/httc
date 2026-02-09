@@ -70,8 +70,7 @@ private:
         Sent,
     };
 
-    void generate_status_line();
-    std::vector<asio::const_buffer> response_head();
+    void generate_head();
 
 private:
     Writer& m_writer;
@@ -80,6 +79,6 @@ private:
     bool m_head;
     State m_state;
 
-    std::string m_status_line;
+    std::string m_head_buffer;
 };
 }

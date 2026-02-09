@@ -9,35 +9,27 @@ namespace httc {
 
 using asio::awaitable;
 
-void Response::generate_status_line() {
+void Response::generate_head() {
+    m_head_buffer.clear();
     auto r = status.reason();
     if (r) {
-        m_status_line = std::format("HTTP/1.1 {} {}\r\n", status.code, *r);
+        std::format_to(std::back_inserter(m_head_buffer), "HTTP/1.1 {} {}\r\n", status.code, *r);
     } else {
-        m_status_line = std::format("HTTP/1.1 {}\r\n", status.code);
+        std::format_to(std::back_inserter(m_head_buffer), "HTTP/1.1 {}\r\n", status.code);
     }
-}
 
-std::vector<asio::const_buffer> Response::response_head() {
-    std::vector<asio::const_buffer> buffers;
-
-    generate_status_line();
-    buffers.push_back(asio::buffer(m_status_line));
     for (const auto& [key, value] : headers) {
-        buffers.push_back(asio::buffer(key));
-        buffers.push_back(asio::buffer(": ", 2));
-        buffers.push_back(asio::buffer(value));
-        buffers.push_back(asio::buffer("\r\n", 2));
+        m_head_buffer.append(key);
+        m_head_buffer.append(": ");
+        m_head_buffer.append(value);
+        m_head_buffer.append("\r\n");
     }
     for (const auto& cookie : cookies) {
-        buffers.push_back(asio::buffer("Set-Cookie", 10));
-        buffers.push_back(asio::buffer(": ", 2));
-        buffers.push_back(asio::buffer(cookie));
-        buffers.push_back(asio::buffer("\r\n", 2));
+        m_head_buffer.append("Set-Cookie: ");
+        m_head_buffer.append(cookie);
+        m_head_buffer.append("\r\n");
     }
-    buffers.push_back(asio::buffer("\r\n", 2));
-
-    return buffers;
+    m_head_buffer.append("\r\n");
 }
 
 Response::Response(Writer& writer, bool is_head_response) : m_writer(writer) {
@@ -63,8 +55,8 @@ asio::awaitable<Response::ChunkedStream> Response::send_chunked() {
 
     m_state = State::StreamChunk;
 
-    auto buffers = response_head();
-    co_await m_writer.write(buffers);
+    generate_head();
+    co_await m_writer.write({ asio::buffer(m_head_buffer) });
 
     co_return ChunkedStream{ *this };
 }
@@ -78,8 +70,8 @@ asio::awaitable<Response::FixedStream> Response::send_fixed(std::size_t content_
 
     m_state = State::StreamFixed;
 
-    auto buffers = response_head();
-    co_await m_writer.write(buffers);
+    generate_head();
+    co_await m_writer.write({ asio::buffer(m_head_buffer) });
 
     co_return FixedStream{ *this };
 }
@@ -130,8 +122,10 @@ awaitable<void> Response::send() {
         co_return;
     }
 
-    auto buffers = response_head();
-    if (!m_head) {
+    generate_head();
+    std::vector<asio::const_buffer> buffers;
+    buffers.push_back(asio::buffer(m_head_buffer));
+    if (!m_head && !m_body.empty()) {
         buffers.push_back(asio::buffer(m_body));
     }
     co_return co_await m_writer.write(buffers);
