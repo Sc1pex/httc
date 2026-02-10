@@ -22,6 +22,10 @@ option(HTTC_BUILD_BENCHMARKS "Build benchmarks" OFF)
 add_library(asio INTERFACE)
 target_include_directories(asio INTERFACE ${asio_SOURCE_DIR}/asio/include)
 target_compile_definitions(asio INTERFACE ASIO_STANDALONE)
+target_compile_definitions(asio INTERFACE ASIO_NO_DEPRECATED)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_compile_definitions(asio INTERFACE ASIO_HAS_IO_URING)
+endif()
 
 add_subdirectory(src)
 
