@@ -2,8 +2,7 @@
 #include <algorithm>
 #include <unordered_map>
 
-namespace httc {
-namespace utils {
+namespace httc::utils {
 
 std::optional<std::string_view> mime_type(const std::filesystem::path& path) {
     static const std::unordered_map<std::string_view, std::string_view> mime_types = {
@@ -57,5 +56,4 @@ std::optional<std::string_view> mime_type(const std::filesystem::path& path) {
     return std::nullopt;
 }
 
-}
 }
