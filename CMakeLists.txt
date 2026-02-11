@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.28)
 
 project(
     httc
-    VERSION 0.1.0
+    VERSION 0.2.0
     LANGUAGES CXX
 )
 
@@ -32,6 +32,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 
 add_subdirectory(src)
+
+add_library(httc::httc ALIAS httc)
 
 if(HTTC_BUILD_EXAMPLES)
     add_subdirectory(examples)
