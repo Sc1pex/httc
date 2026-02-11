@@ -17,6 +17,7 @@ target_sources(httc
         ./uri.cpp
         ./validation.cpp
         ./utils/mime.cpp
+        ./utils/file_handlers.cpp
         ./utils/fs.cpp
 
     PUBLIC
@@ -37,5 +38,6 @@ target_sources(httc
             ${PROJECT_SOURCE_DIR}/include/httc/uri.hpp
             ${PROJECT_SOURCE_DIR}/include/httc/validation.hpp
             ${PROJECT_SOURCE_DIR}/include/httc/utils/mime.hpp
+            ${PROJECT_SOURCE_DIR}/include/httc/utils/file_handlers.hpp
             ${PROJECT_SOURCE_DIR}/include/httc/utils/fs.hpp
 )

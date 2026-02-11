@@ -1,0 +1,3 @@
+This is a test file served from the public directory by httc!
+It demonstrates that DirectoryHandler can correctly serve individual files
+while also providing directory listings.
