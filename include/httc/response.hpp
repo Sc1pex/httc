@@ -1,13 +1,18 @@
 #pragma once
 
+#include <asio/any_io_executor.hpp>
+#include <optional>
 #include "httc/headers.hpp"
 #include "httc/io.hpp"
 #include "httc/status.hpp"
 
 namespace httc {
 
+class Router;
+struct ServerConfig;
+
 class Response {
-    using WriteFn = asio::awaitable<void>(*)(void*, std::vector<asio::const_buffer>);
+    using WriteFn = asio::awaitable<void> (*)(void*, std::vector<asio::const_buffer>);
 
 public:
     template<Writer W>
@@ -74,6 +79,13 @@ public:
         return m_head;
     }
 
+    asio::any_io_executor thread_pool_executor() const {
+        if (!m_thread_pool_executor) {
+            throw std::runtime_error("Thread pool executor not set");
+        }
+        return *m_thread_pool_executor;
+    }
+
 private:
     enum class State {
         Uninitialized,
@@ -86,6 +98,10 @@ private:
     void generate_head();
     asio::awaitable<void> write_to_writer(std::vector<asio::const_buffer> buffers);
 
+    void set_thread_pool_executor(asio::any_io_executor ex) {
+        m_thread_pool_executor = std::move(ex);
+    }
+
 private:
     void* m_writer_ptr;
     WriteFn m_write_fn;
@@ -95,5 +111,10 @@ private:
     State m_state;
 
     std::string m_head_buffer;
+    std::optional<asio::any_io_executor> m_thread_pool_executor;
+
+    friend asio::awaitable<void> handle_conn(
+        asio::ip::tcp::socket, std::shared_ptr<Router>, ServerConfig, asio::any_io_executor
+    );
 };
 }

@@ -1,6 +1,7 @@
 #include "httc/server.hpp"
 #include <asio.hpp>
 #include <asio/experimental/awaitable_operators.hpp>
+#include <asio/thread_pool.hpp>
 #include <print>
 #include "httc/io.hpp"
 #include "httc/request_parser.hpp"
@@ -14,7 +15,10 @@ using asio::ip::tcp;
 
 using namespace asio::experimental::awaitable_operators;
 
-awaitable<void> handle_conn(tcp::socket socket, std::shared_ptr<Router> router, ServerConfig cfg) {
+awaitable<void> handle_conn(
+    tcp::socket socket, std::shared_ptr<Router> router, ServerConfig cfg,
+    asio::any_io_executor thread_pool_executor
+) {
     SocketReader reader{ socket, cfg };
     RequestParser req_parser{ cfg.max_header_size, cfg.max_body_size, reader };
 
@@ -54,6 +58,8 @@ awaitable<void> handle_conn(tcp::socket socket, std::shared_ptr<Router> router, 
         try {
             Response res{ writer };
             auto req = std::move(req_result).value();
+            req.set_thread_pool_executor(thread_pool_executor);
+            res.set_thread_pool_executor(thread_pool_executor);
             co_await router->handle(req, res);
             co_await res.send();
             success = true;
@@ -72,11 +78,18 @@ awaitable<void> handle_conn(tcp::socket socket, std::shared_ptr<Router> router, 
 
 asio::awaitable<void>
     listen(tcp::acceptor acceptor, std::shared_ptr<Router> router, ServerConfig config) {
+    // Create thread pool for blocking operations
+    asio::thread_pool blocking_pool(config.blocking_thread_pool_size);
+    auto thread_pool_executor = blocking_pool.get_executor();
+
     for (;;) {
         try {
             auto socket = co_await acceptor.async_accept(use_awaitable);
             auto ex = co_await asio::this_coro::executor;
-            asio::co_spawn(ex, handle_conn(std::move(socket), router, config), asio::detached);
+            asio::co_spawn(
+                ex, handle_conn(std::move(socket), router, config, thread_pool_executor),
+                asio::detached
+            );
         } catch (std::exception& e) {
             std::println("Error accepting connection: {}", e.what());
         }

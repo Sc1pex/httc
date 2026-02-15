@@ -1,6 +1,8 @@
 #pragma once
 
+#include <asio/any_io_executor.hpp>
 #include <format>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include "httc/headers.hpp"
@@ -8,6 +10,9 @@
 #include "httc/uri.hpp"
 
 namespace httc {
+
+class Router;
+struct ServerConfig;
 
 class Request {
 public:
@@ -30,8 +35,24 @@ public:
     std::string wildcard_path;
     std::unordered_map<std::string, std::string> path_params;
 
+    asio::any_io_executor thread_pool_executor() const {
+        if (!m_thread_pool_executor) {
+            throw std::runtime_error("Thread pool executor not set");
+        }
+        return *m_thread_pool_executor;
+    }
+
 private:
+    void set_thread_pool_executor(asio::any_io_executor ex) {
+        m_thread_pool_executor = std::move(ex);
+    }
+
     std::unique_ptr<char[]> m_raw_headers;
+    std::optional<asio::any_io_executor> m_thread_pool_executor;
+
+    friend asio::awaitable<void> handle_conn(
+        asio::ip::tcp::socket, std::shared_ptr<Router>, ServerConfig, asio::any_io_executor
+    );
 
     template<Reader R>
     friend class RequestParser;
