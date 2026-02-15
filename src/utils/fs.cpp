@@ -1,9 +1,10 @@
 #include "httc/utils/fs.hpp"
 #include <algorithm>
-#include <asio/redirect_error.hpp>
-#include <asio/stream_file.hpp>
+#include <asio/post.hpp>
 #include <asio/this_coro.hpp>
 #include <asio/use_awaitable.hpp>
+#include <fstream>
+#include <memory>
 #include "httc/utils/mime.hpp"
 
 namespace httc::utils {
@@ -68,30 +69,65 @@ asio::awaitable<void> serve_file(const std::filesystem::path& path, Response& re
         res.headers.set("Content-Type", "application/octet-stream");
     }
 
-    auto executor = co_await asio::this_coro::executor;
-    asio::stream_file file(executor);
+    auto stream = co_await res.send_fixed(size);
 
-    file.open(path.string(), asio::stream_file::read_only, ec);
-    if (ec) {
+    // Use thread pool executor for blocking file I/O
+    auto thread_pool_executor = res.thread_pool_executor();
+
+    auto file = std::make_shared<std::ifstream>(path, std::ios::binary);
+    if (!*file) {
         res.status = StatusCode::FORBIDDEN;
         co_return;
     }
 
-    auto stream = co_await res.send_fixed(size);
+    constexpr std::size_t buffer_size = 8192;
+    std::size_t bytes_remaining = size;
 
-    char buffer[8192];
-    while (true) {
-        std::size_t n = co_await file.async_read_some(
-            asio::buffer(buffer), asio::redirect_error(asio::use_awaitable, ec)
+    while (bytes_remaining > 0) {
+        std::size_t to_read = std::min(buffer_size, bytes_remaining);
+
+        auto read_result = co_await asio::async_initiate<
+            decltype(asio::use_awaitable), void(std::optional<std::string>)>(
+            [](auto handler, asio::any_io_executor file_executor,
+               std::shared_ptr<std::ifstream> file_ptr, std::size_t to_read) {
+                // Post the blocking file I/O to the thread pool
+                asio::post(
+                    file_executor, [handler = std::move(handler), file_ptr, to_read]() mutable {
+                        std::string buffer(to_read, '\0');
+                        file_ptr->read(buffer.data(), to_read);
+                        auto bytes_read = file_ptr->gcount();
+
+                        if (bytes_read <= 0) {
+                            asio::post(
+                                asio::get_associated_executor(handler),
+                                [handler = std::move(handler)]() mutable {
+                                    handler(std::nullopt);
+                                }
+                            );
+                            return;
+                        }
+
+                        buffer.resize(bytes_read);
+                        // Post the result back to the event loop
+                        asio::post(
+                            asio::get_associated_executor(handler),
+                            [handler = std::move(handler), buffer = std::move(buffer)]() mutable {
+                                handler(std::move(buffer));
+                            }
+                        );
+                    }
+                );
+            },
+            asio::use_awaitable, thread_pool_executor, file, to_read
         );
 
-        if (ec == asio::error::eof || n == 0) {
-            break;
-        } else if (ec) {
+        if (!read_result) {
+            // Read error occurred
             co_return;
         }
 
-        co_await stream.write(std::string_view(buffer, n));
+        co_await stream.write(*read_result);
+        bytes_remaining -= read_result->size();
     }
 
     co_return;
