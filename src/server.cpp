@@ -14,8 +14,7 @@ using asio::ip::tcp;
 
 using namespace asio::experimental::awaitable_operators;
 
-awaitable<void>
-    handle_conn(tcp::socket socket, std::shared_ptr<Router> router, const ServerConfig& cfg) {
+awaitable<void> handle_conn(tcp::socket socket, std::shared_ptr<Router> router, ServerConfig cfg) {
     SocketReader reader{ socket, cfg };
     RequestParser req_parser{ cfg.max_header_size, cfg.max_body_size, reader };
 
@@ -72,7 +71,7 @@ awaitable<void>
 }
 
 asio::awaitable<void>
-    listen(tcp::acceptor acceptor, std::shared_ptr<Router> router, const ServerConfig& config) {
+    listen(tcp::acceptor acceptor, std::shared_ptr<Router> router, ServerConfig config) {
     for (;;) {
         try {
             auto socket = co_await acceptor.async_accept(use_awaitable);
@@ -86,7 +85,7 @@ asio::awaitable<void>
 
 void bind_and_listen(
     std::string_view addr, unsigned int port, std::shared_ptr<Router> router,
-    asio::io_context& io_ctx, const ServerConfig& config
+    asio::io_context& io_ctx, ServerConfig config
 ) {
     tcp::endpoint endpoint(asio::ip::make_address(addr), port);
     tcp::acceptor acceptor(io_ctx, endpoint);

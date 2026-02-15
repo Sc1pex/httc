@@ -2,7 +2,6 @@
 
 #include <asio.hpp>
 #include <memory>
-#include <string>
 #include "httc/router.hpp"
 #include "httc/server_config.hpp"
 
@@ -10,7 +9,7 @@ namespace httc {
 
 void bind_and_listen(
     std::string_view addr, unsigned int port, std::shared_ptr<Router> router,
-    asio::io_context& io_ctx, const ServerConfig& config = {}
+    asio::io_context& io_ctx, ServerConfig config = {}
 );
 
 }
