@@ -3,6 +3,7 @@ add_library(httc)
 target_compile_features(httc PUBLIC cxx_std_23)
 
 target_link_libraries(httc PUBLIC asio)
+target_link_libraries(httc PRIVATE httc_warnings)
 
 target_sources(httc
     PRIVATE

@@ -11,7 +11,7 @@ target_sources(unit_tests PRIVATE
     uri.cpp
 )
 
-target_link_libraries(unit_tests PRIVATE Catch2::Catch2WithMain httc)
+target_link_libraries(unit_tests PRIVATE Catch2::Catch2WithMain httc httc_warnings)
 
 include(Catch)
 catch_discover_tests(unit_tests)
