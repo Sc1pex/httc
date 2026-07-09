@@ -17,7 +17,7 @@ void run_async_test(F&& test_coroutine_factory) {
 
 #define ASYNC_TEST_CASE(name, ...) \
     static asio::awaitable<void> CONCAT(_async_test_body_, __LINE__)(); \
-    TEST_CASE(name, ##__VA_ARGS__) { \
+    TEST_CASE(name __VA_OPT__(, ) __VA_ARGS__) { \
         run_async_test(CONCAT(_async_test_body_, __LINE__)); \
     } \
     asio::awaitable<void> CONCAT(_async_test_body_, __LINE__)()

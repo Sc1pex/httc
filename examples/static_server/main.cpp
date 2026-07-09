@@ -13,7 +13,7 @@ int main() {
     router->route("/public/*", httc::utils::DirectoryHandler("./public", true));
 
     asio::io_context io_ctx;
-    int port = 8080;
+    uint16_t port = 8080;
 
     std::println("Static server listening on port {}", port);
     std::println("Visit: http://localhost:{}", port);

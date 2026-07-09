@@ -19,7 +19,7 @@ awaitable<void> handle_conn(
     tcp::socket socket, std::shared_ptr<Router> router, ServerConfig cfg,
     asio::any_io_executor thread_pool_executor
 ) {
-    SocketReader reader{ socket, cfg };
+    SocketReader reader{ socket };
     RequestParser req_parser{ cfg.max_header_size, cfg.max_body_size, reader };
 
     SocketWriter writer{ socket };
@@ -97,8 +97,8 @@ asio::awaitable<void>
 }
 
 void bind_and_listen(
-    std::string_view addr, unsigned int port, std::shared_ptr<Router> router,
-    asio::io_context& io_ctx, ServerConfig config
+    std::string_view addr, uint16_t port, std::shared_ptr<Router> router, asio::io_context& io_ctx,
+    ServerConfig config
 ) {
     tcp::endpoint endpoint(asio::ip::make_address(addr), port);
     tcp::acceptor acceptor(io_ctx, endpoint);

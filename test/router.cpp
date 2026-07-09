@@ -374,7 +374,7 @@ ASYNC_TEST_CASE("Param and wildcard extraction") {
 
 ASYNC_TEST_CASE("Middleware") {
     httc::Router router;
-    std::vector<int> call_order;
+    std::vector<size_t> call_order;
 
     router
         .wrap([&](const httc::Request& req, httc::Response& res, auto next) -> awaitable<void> {
@@ -405,7 +405,7 @@ ASYNC_TEST_CASE("Middleware") {
         REQUIRE(res.status.code == 200);
 
         REQUIRE(call_order.size() == 5);
-        for (int i = 0; i < 5; i++) {
+        for (size_t i = 0; i < 5; i++) {
             CHECK(call_order[i] == i + 1);
         }
     }

@@ -35,7 +35,7 @@ std::optional<std::string> percent_decode(const std::string& str) {
 std::string percent_encode(const std::string& str) {
     std::string result;
 
-    for (unsigned char c : str) {
+    for (char c : str) {
         if (isUnreserved(c)) {
             result += c;
         } else {

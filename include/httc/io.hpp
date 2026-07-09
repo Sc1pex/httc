@@ -28,13 +28,12 @@ concept Writer = requires(T t, std::vector<asio::const_buffer> b) {
 
 class SocketReader {
 public:
-    SocketReader(asio::ip::tcp::socket& socket, const ServerConfig& cfg);
+    SocketReader(asio::ip::tcp::socket& socket);
     asio::awaitable<std::expected<std::string_view, ReaderError>> pull();
 
 private:
     std::array<char, 8192> m_buffer;
     asio::ip::tcp::socket& m_sock;
-    const ServerConfig& m_cfg;
 };
 
 class SocketWriter {
