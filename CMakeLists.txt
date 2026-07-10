@@ -55,9 +55,13 @@ set(GCC_WARNINGS
     -Wuseless-cast
     -Wsuggest-override
 )
-# GCC triggers false-positive -Wnull-dereference warnings
-# when inlining asio code (Asio Issue #1616).
+# GCC's optimizer triggers false-positive -Wnull-dereference warnings
+# when inlining Asio's executor comparison and scheduler logic (Asio Issue #1616).
 list(REMOVE_ITEM GCC_WARNINGS -Wnull-dereference)
+
+# GCC (specifically with UBSan and -O3) triggers false-positive -Wmismatched-new-delete warnings
+# when tracing Asio's custom coroutine frame aligned allocators back to std::free.
+list(APPEND GCC_WARNINGS -Wno-mismatched-new-delete)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(httc_warnings INTERFACE ${CLANG_WARNINGS})
