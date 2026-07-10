@@ -34,8 +34,8 @@ std::expected<DirectoryListing, std::error_code> list_directory(const std::files
         return std::unexpected(ec);
     }
 
-    std::sort(dirs.begin(), dirs.end());
-    std::sort(files.begin(), files.end());
+    std::ranges::sort(dirs);
+    std::ranges::sort(files);
 
     DirectoryListing listing;
     listing.files_start_index = dirs.size();
@@ -76,7 +76,7 @@ asio::awaitable<void> serve_file(const std::filesystem::path& path, Response& re
 
     constexpr std::size_t buffer_size = 8192;
     std::size_t bytes_remaining = size;
-    std::array<char, buffer_size> read_buf;
+    std::array<char, buffer_size> read_buf{};
 
     auto stream = co_await res.send_fixed(size);
 
@@ -96,12 +96,10 @@ asio::awaitable<void> serve_file(const std::filesystem::path& path, Response& re
                             result = std::string_view{ read_buf.data(), bytes_read };
                         }
 
-                        asio::post(
-                            asio::get_associated_executor(handler),
-                            [handler = std::move(handler), result = std::move(result)]() mutable {
-                                handler(std::move(result));
-                            }
-                        );
+                        auto result_ex = asio::get_associated_executor(handler);
+                        asio::post(result_ex, [handler = std::move(handler), result]() mutable {
+                            handler(std::move(result));
+                        });
                     }
                 );
             },

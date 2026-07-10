@@ -12,7 +12,7 @@ namespace httc::utils {
 
 struct DirectoryListing {
     std::vector<std::string> entries;
-    std::size_t files_start_index;
+    std::size_t files_start_index = 0;
 };
 
 std::expected<DirectoryListing, std::error_code> list_directory(const std::filesystem::path& path);
