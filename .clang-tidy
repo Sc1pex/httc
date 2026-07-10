@@ -12,6 +12,7 @@ Checks: >
   -readability-identifier-length,
   -modernize-use-trailing-return-type,
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-non-private-member-variables-in-classes,
   -bugprone-easily-swappable-parameters
 
 WarningsAsErrors: '*'
