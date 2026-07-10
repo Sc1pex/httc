@@ -55,6 +55,9 @@ set(GCC_WARNINGS
     -Wuseless-cast
     -Wsuggest-override
 )
+# GCC triggers false-positive -Wnull-dereference warnings
+# when inlining asio code (Asio Issue #1616).
+list(REMOVE_ITEM GCC_WARNINGS -Wnull-dereference)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(httc_warnings INTERFACE ${CLANG_WARNINGS})
