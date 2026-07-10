@@ -86,7 +86,7 @@ class MethodWrapper {
 public:
     template<IsHandler T>
     MethodWrapper(T&& f)
-    : m_methods({ std::string(Methods.value.data(), Methods.value.size())... }),
+    : m_methods({ std::string(Methods.value.data(), Methods.value.size() - 1)... }),
       m_handler(make_handler(std::forward<T>(f))) {
     }
 
