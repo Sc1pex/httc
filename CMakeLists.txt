@@ -88,11 +88,12 @@ endif()
 
 if(HTTC_BUILD_TESTS)
     FetchContent_Declare(
-        Catch2
-        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-        GIT_TAG        v3.15.2
+        doctest
+        GIT_REPOSITORY https://github.com/doctest/doctest.git
+        GIT_TAG        v2.5.3
+        SYSTEM
     )
-    FetchContent_MakeAvailable(Catch2)
+    FetchContent_MakeAvailable(doctest)
     
     enable_testing()
     add_subdirectory(test)

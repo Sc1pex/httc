@@ -1,4 +1,4 @@
-#include <catch2/catch_test_macros.hpp>
+#include "doctest_compat.hpp"
 #include <httc/percent_encoding.hpp>
 
 TEST_CASE("Percent decode valid sequences") {

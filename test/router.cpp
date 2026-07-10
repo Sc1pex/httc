@@ -1,10 +1,10 @@
 #include <asio.hpp>
-#include <catch2/catch_test_macros.hpp>
 #include <httc/request.hpp>
 #include <httc/response.hpp>
 #include <httc/router.hpp>
 #include <httc/status.hpp>
 #include "async_test.hpp"
+#include "doctest_compat.hpp"
 
 namespace methods = httc::methods;
 using asio::awaitable;

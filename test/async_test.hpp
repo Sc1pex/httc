@@ -1,6 +1,6 @@
 #pragma once
 #include <asio.hpp>
-#include <catch2/catch_test_macros.hpp>
+#include "doctest_compat.hpp"
 
 template<typename F>
 void run_async_test(F&& test_coroutine_factory) {

@@ -1,5 +1,5 @@
 #include <algorithm>
-#include <catch2/catch_test_macros.hpp>
+#include "doctest_compat.hpp"
 #include <httc/headers.hpp>
 #include <vector>
 

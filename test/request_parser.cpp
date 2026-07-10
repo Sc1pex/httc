@@ -1,5 +1,4 @@
-#include <catch2/catch_message.hpp>
-#include <catch2/catch_test_macros.hpp>
+#include "doctest_compat.hpp"
 #include <httc/io.hpp>
 #include <httc/request_parser.hpp>
 #include "async_test.hpp"

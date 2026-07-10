@@ -1,4 +1,4 @@
-#include <catch2/catch_test_macros.hpp>
+#include "doctest_compat.hpp"
 #include <httc/response.hpp>
 #include <httc/status.hpp>
 #include <string>

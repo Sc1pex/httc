@@ -1,6 +1,7 @@
 add_executable(unit_tests)
 
 target_sources(unit_tests PRIVATE
+    main.cpp
     async_test.hpp
     headers.cpp
     percent_encoding.cpp
@@ -11,7 +12,8 @@ target_sources(unit_tests PRIVATE
     uri.cpp
 )
 
-target_link_libraries(unit_tests PRIVATE Catch2::Catch2WithMain httc httc_warnings)
+target_link_libraries(unit_tests PRIVATE doctest::doctest httc httc_warnings)
 
-include(Catch)
-catch_discover_tests(unit_tests)
+list(APPEND CMAKE_MODULE_PATH "${doctest_SOURCE_DIR}/scripts/cmake")
+include(doctest)
+doctest_discover_tests(unit_tests)
