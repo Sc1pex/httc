@@ -176,7 +176,7 @@ TEST_CASE("Percent encode/decode roundtrip") {
     }
 
     SUBCASE("Empty string roundtrip") {
-        std::string original = "";
+        std::string original;
         auto encoded = httc::percent_encode(original);
         auto decoded = httc::percent_decode(encoded);
         REQUIRE(decoded.has_value());

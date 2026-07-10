@@ -52,7 +52,7 @@ public:
 
 private:
     struct HandlerPath {
-        HandlerPath(URI p) : path(p) {
+        HandlerPath(URI p) : path(std::move(p)) {
         }
 
         URI path;
@@ -67,7 +67,6 @@ private:
     asio::awaitable<void>
         run_handler(HandlerFn f, const URI& handler_path, Request& req, Response& res) const;
 
-private:
     std::vector<HandlerPath> m_handlers;
     std::vector<MiddlewareFn> m_middleware;
 };
@@ -75,25 +74,27 @@ private:
 // Helper to convert string literals to char arrays
 template<size_t N>
 struct StringLiteral {
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays)
     constexpr StringLiteral(const char (&str)[N]) {
-        std::copy_n(str, N, value);
+        std::copy_n(static_cast<const char*>(str), N, value.begin());
     }
-    char value[N];
+    std::array<char, N> value;
 };
 
 template<StringLiteral... Methods>
 class MethodWrapper {
 public:
     template<IsHandler T>
-    MethodWrapper(T&& f) : m_handler(make_handler(std::forward<T>(f))) {
-        m_methods = { std::string(Methods.value)... };
+    MethodWrapper(T&& f)
+    : m_methods({ std::string(Methods.value.data(), Methods.value.size())... }),
+      m_handler(make_handler(std::forward<T>(f))) {
     }
 
     asio::awaitable<void> operator()(const Request& req, Response& res) {
         co_return co_await m_handler(req, res);
     }
 
-    std::vector<std::string> getAllowedMethods() const {
+    [[nodiscard]] std::vector<std::string> getAllowedMethods() const {
         return m_methods;
     }
 

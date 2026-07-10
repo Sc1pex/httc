@@ -3,7 +3,7 @@
 
 namespace httc {
 
-SocketReader::SocketReader(asio::ip::tcp::socket& socket) : m_buffer{}, m_sock(socket) {
+SocketReader::SocketReader(asio::ip::tcp::socket& socket) : m_sock(socket) {
 }
 
 asio::awaitable<std::expected<std::string_view, ReaderError>> SocketReader::pull() {

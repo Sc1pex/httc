@@ -1,10 +1,11 @@
 #include <doctest/doctest.h>
 #include <httc/io.hpp>
 #include <httc/request_parser.hpp>
+#include <utility>
 #include "async_test.hpp"
 
-const std::size_t MAX_HEADER_SIZE = 16 * 1024;
-const std::size_t MAX_BODY_SIZE = 10 * 1024 * 1024;
+const std::size_t MAX_HEADER_SIZE = 16UL * 1024;
+const std::size_t MAX_BODY_SIZE = 10UL * 1024 * 1024;
 
 class StringReader {
 public:
@@ -18,7 +19,7 @@ public:
     };
 
     void set_data(std::string data) {
-        str = data;
+        str = std::move(data);
         read = false;
     }
 
@@ -42,7 +43,7 @@ public:
         pos = 0;
     }
 
-    bool is_eof() const {
+    [[nodiscard]] bool is_eof() const {
         return pos >= str.size();
     }
 
@@ -456,7 +457,7 @@ ASYNC_TEST_CASE("Parse chunked bodies") {
         REQUIRE(result->has_value());
 
         const auto& req = result->value();
-        auto trailers = &req.trailers;
+        const auto& trailers = &req.trailers;
 
         auto trailer_header = trailers->get_one("Trailer-Header");
         REQUIRE(trailer_header.has_value());
@@ -625,11 +626,11 @@ ASYNC_TEST_CASE("Many small headers exceeding limit") {
     httc::RequestParser parser{ 1024, MAX_BODY_SIZE, reader };
 
     auto data = std::vector<std::string>{};
-    data.push_back("GET / HTTP/1.1\r\n");
+    data.emplace_back("GET / HTTP/1.1\r\n");
     for (int i = 0; i < 200; ++i) {
         data.push_back(std::format("H{}: v\r\n", i));
     }
-    data.push_back("\r\n");
+    data.emplace_back("\r\n");
 
     reader.set_data(data);
     auto result = co_await parser.next();

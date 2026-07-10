@@ -8,7 +8,7 @@
 namespace httc {
 
 // Represents how well a URI pattern matches a given URI.
-enum class URIMatch {
+enum class URIMatch : uint8_t {
     NO_MATCH,
     WILD_MATCH, // e.g., /path/* matches /path/anything/here
     PARAM_MATCH, // e.g., /path/:param matches /path/value, but better than /path/*
@@ -35,7 +35,6 @@ private:
     : m_paths(std::move(paths)), m_query(std::move(query)) {
     }
 
-private:
     std::vector<std::string> m_paths;
     std::vector<std::pair<std::string, std::string>> m_query;
     std::string m_buf;
@@ -45,7 +44,7 @@ private:
 
 template<>
 struct std::formatter<httc::URI> : std::formatter<std::string> {
-    auto format(const httc::URI& uri, std::format_context& ctx) const {
+    auto static format(const httc::URI& uri, std::format_context& ctx) {
         auto out = ctx.out();
         for (const auto& path : uri.paths()) {
             out = std::format_to(out, "/{}", path);

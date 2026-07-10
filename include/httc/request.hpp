@@ -23,6 +23,7 @@ public:
 
     Request(Request&&) noexcept = default;
     Request& operator=(Request&&) noexcept = default;
+    ~Request() = default;
 
     std::string method;
     URI uri;
@@ -47,6 +48,7 @@ private:
         m_thread_pool_executor = std::move(ex);
     }
 
+    // NOLINTNEXTLINE(modernize-avoid-c-arrays,cppcoreguidelines-avoid-c-arrays)
     std::unique_ptr<char[]> m_raw_headers;
     std::optional<asio::any_io_executor> m_thread_pool_executor;
 
@@ -62,7 +64,7 @@ private:
 
 template<>
 struct std::formatter<httc::Request> : std::formatter<std::string> {
-    auto format(const httc::Request& req, std::format_context& ctx) const {
+    auto static format(const httc::Request& req, std::format_context& ctx) {
         auto out = ctx.out();
         out = std::format_to(out, "method: {}\n", req.method);
         out = std::format_to(out, "path: {}\n", req.uri);

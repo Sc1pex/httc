@@ -81,7 +81,7 @@ asio::awaitable<void> Response::ChunkedStream::write(std::string_view chunk) {
 
     auto chunk_size = std::format("{:X}\r\n", chunk.size());
 
-    co_return co_await m_parent.write_to_writer(
+    co_return co_await m_parent.get().write_to_writer(
         {
             asio::buffer(chunk_size),
             asio::buffer(chunk),
@@ -91,12 +91,12 @@ asio::awaitable<void> Response::ChunkedStream::write(std::string_view chunk) {
 }
 
 asio::awaitable<void> Response::ChunkedStream::end() {
-    m_parent.m_state = State::Sent;
-    co_return co_await m_parent.write_to_writer({ asio::buffer("0\r\n\r\n", 5) });
+    m_parent.get().m_state = State::Sent;
+    co_return co_await m_parent.get().write_to_writer({ asio::buffer("0\r\n\r\n", 5) });
 }
 
 asio::awaitable<void> Response::FixedStream::write(std::string_view data) {
-    co_return co_await m_parent.write_to_writer({ asio::buffer(data) });
+    co_return co_await m_parent.get().write_to_writer({ asio::buffer(data) });
 }
 
 awaitable<void> Response::send() {

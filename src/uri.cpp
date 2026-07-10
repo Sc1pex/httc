@@ -1,14 +1,13 @@
 #include "httc/uri.hpp"
 #include <optional>
-#include <print>
 #include <ranges>
 #include "httc/percent_encoding.hpp"
 
 namespace httc {
 
-std::optional<URI> URI::parse(std::string_view uri) {
-    auto query_start = uri.find("?");
-    auto path = std::string(uri.substr(0, query_start));
+std::optional<URI> URI::parse(std::string_view url_decoded) {
+    auto query_start = url_decoded.find('?');
+    auto path = std::string(url_decoded.substr(0, query_start));
 
     std::vector<std::string> paths;
     std::vector<std::pair<std::string, std::string>> query;
@@ -18,7 +17,7 @@ std::optional<URI> URI::parse(std::string_view uri) {
     }
 
     size_t start = 1;
-    size_t end = path.find("/", start);
+    size_t end = path.find('/', start);
     while (end != std::string::npos) {
         if (end > start) {
             auto str = path.substr(start, end - start);
@@ -30,7 +29,7 @@ std::optional<URI> URI::parse(std::string_view uri) {
             paths.push_back(path.substr(start, end - start));
         }
         start = end + 1;
-        end = path.find("/", start);
+        end = path.find('/', start);
     }
     paths.push_back(path.substr(start));
 
@@ -47,11 +46,11 @@ std::optional<URI> URI::parse(std::string_view uri) {
         return URI{ std::move(paths), std::move(query) };
     }
 
-    std::string query_str = std::string(uri.substr(query_start + 1));
+    std::string query_str = std::string(url_decoded.substr(query_start + 1));
     start = 0;
-    end = query_str.find("&", start);
+    end = query_str.find('&', start);
     while (end != std::string::npos) {
-        auto eq_pos = query_str.find("=", start);
+        auto eq_pos = query_str.find('=', start);
         if (eq_pos != std::string::npos && eq_pos < end) {
             query.emplace_back(
                 query_str.substr(start, eq_pos - start),
@@ -61,10 +60,10 @@ std::optional<URI> URI::parse(std::string_view uri) {
             query.emplace_back(query_str.substr(start, end - start), "");
         }
         start = end + 1;
-        end = query_str.find("&", start);
+        end = query_str.find('&', start);
     }
     if (start < query_str.size()) {
-        auto eq_pos = query_str.find("=", start);
+        auto eq_pos = query_str.find('=', start);
         if (eq_pos != std::string::npos) {
             query.emplace_back(
                 query_str.substr(start, eq_pos - start), query_str.substr(eq_pos + 1)
@@ -110,14 +109,14 @@ std::optional<std::string_view> URI::query_param(std::string_view param) const {
 }
 
 URIMatch URI::match(const URI& other) const {
-    bool param_match[2] = { false, false };
+    std::array<bool, 2> param_match = { false, false };
 
     for (const auto& [path_a, path_b] : std::views::zip(m_paths, other.m_paths)) {
         if (path_a == "*" || path_b == "*") {
             return URIMatch::WILD_MATCH;
         }
         if (path_a != path_b) {
-            if (path_a.length() == 0 || path_b.length() == 0) {
+            if (path_a.empty() || path_b.empty()) {
                 return URIMatch::NO_MATCH;
             }
 

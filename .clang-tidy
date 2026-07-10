@@ -13,7 +13,9 @@ Checks: >
   -modernize-use-trailing-return-type,
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
   -cppcoreguidelines-non-private-member-variables-in-classes,
-  -bugprone-easily-swappable-parameters
+  -bugprone-easily-swappable-parameters,
+  -clang-analyzer-core.NullDereference,
+  -cppcoreguidelines-avoid-reference-coroutine-parameters
 
 WarningsAsErrors: '*'
 

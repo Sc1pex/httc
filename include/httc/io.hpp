@@ -33,7 +33,7 @@ public:
     asio::awaitable<std::expected<std::string_view, ReaderError>> pull();
 
 private:
-    std::array<char, 8192> m_buffer;
+    std::array<char, 8192> m_buffer{};
     std::reference_wrapper<asio::ip::tcp::socket> m_sock;
 };
 
