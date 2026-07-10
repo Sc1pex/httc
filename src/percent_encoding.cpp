@@ -39,7 +39,7 @@ std::string percent_encode(const std::string& str) {
         if (isUnreserved(c)) {
             result += c;
         } else {
-            result += std::format("%{:02X}", static_cast<int>(c));
+            result += std::format("%{:02X}", static_cast<uint8_t>(c));
         }
     }
 
