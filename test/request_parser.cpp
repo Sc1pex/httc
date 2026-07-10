@@ -1,4 +1,4 @@
-#include "doctest_compat.hpp"
+#include <doctest/doctest.h>
 #include <httc/io.hpp>
 #include <httc/request_parser.hpp>
 #include "async_test.hpp"
@@ -74,7 +74,7 @@ ASYNC_TEST_CASE("Parse request line") {
     auto reader = StringReader{};
     httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE, reader };
 
-    SECTION("Valid request line") {
+    SUBCASE("Valid request line") {
         reader.set_data("GET /index.html HTTP/1.1\r\n\r\n");
         auto result = co_await parser.next();
         REQUIRE(result.has_value());
@@ -84,7 +84,7 @@ ASYNC_TEST_CASE("Parse request line") {
         REQUIRE(req.uri.to_string() == "/index.html");
     }
 
-    SECTION("Valid request line with url encoding") {
+    SUBCASE("Valid request line with url encoding") {
         reader.set_data("GET /abc%20def HTTP/1.1\r\n\r\n");
         auto result = co_await parser.next();
         REQUIRE(result.has_value());
@@ -94,7 +94,7 @@ ASYNC_TEST_CASE("Parse request line") {
         REQUIRE(req.uri.to_string() == "/abc def");
     }
 
-    SECTION("Invalid HTTP version") {
+    SUBCASE("Invalid HTTP version") {
         reader.set_data("GET /index.html HTTP/2.0\r\n\r\n");
         auto result = co_await parser.next();
         REQUIRE(result.has_value());
@@ -102,7 +102,7 @@ ASYNC_TEST_CASE("Parse request line") {
         REQUIRE(result->error() == httc::RequestParserError::INVALID_REQUEST_LINE);
     }
 
-    SECTION("Request line with leading CRLF") {
+    SUBCASE("Request line with leading CRLF") {
         reader.set_data("\r\n\r\nGET /index.html HTTP/1.1\r\n\r\n");
         auto result = co_await parser.next();
         REQUIRE(result.has_value());
@@ -112,7 +112,7 @@ ASYNC_TEST_CASE("Parse request line") {
         REQUIRE(req.uri.to_string() == "/index.html");
     }
 
-    SECTION("Invalid method token") {
+    SUBCASE("Invalid method token") {
         reader.set_data("GE==T /index.html HTTP/1.1\r\n\r\n");
         auto result = co_await parser.next();
         REQUIRE(result.has_value());
@@ -120,7 +120,7 @@ ASYNC_TEST_CASE("Parse request line") {
         REQUIRE(result->error() == httc::RequestParserError::INVALID_REQUEST_LINE);
     }
 
-    SECTION("Invalid request line 1") {
+    SUBCASE("Invalid request line 1") {
         reader.set_data("INVALID_REQUEST_LINE\r\n\r\n");
         auto result = co_await parser.next();
         REQUIRE(result.has_value());
@@ -128,7 +128,7 @@ ASYNC_TEST_CASE("Parse request line") {
         REQUIRE(result->error() == httc::RequestParserError::INVALID_REQUEST_LINE);
     }
 
-    SECTION("Invalid request line 2") {
+    SUBCASE("Invalid request line 2") {
         reader.set_data("GET /index.html\r\n\r\n");
         auto result = co_await parser.next();
         REQUIRE(result.has_value());
@@ -136,7 +136,7 @@ ASYNC_TEST_CASE("Parse request line") {
         REQUIRE(result->error() == httc::RequestParserError::INVALID_REQUEST_LINE);
     }
 
-    SECTION("Invalid request line 3") {
+    SUBCASE("Invalid request line 3") {
         reader.set_data("GET /index.html HTTP/1.1 EXTRA\r\n\r\n");
         auto result = co_await parser.next();
         REQUIRE(result.has_value());
@@ -149,7 +149,7 @@ ASYNC_TEST_CASE("Parse query parameters") {
     auto reader = StringReader{};
     httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE, reader };
 
-    SECTION("Valid query parameters") {
+    SUBCASE("Valid query parameters") {
         reader.set_data("GET /search?q=test&page=1 HTTP/1.1\r\n\r\n");
         auto result = co_await parser.next();
         REQUIRE(result.has_value());
@@ -164,7 +164,7 @@ ASYNC_TEST_CASE("Parse query parameters") {
         REQUIRE(page.value() == "1");
     }
 
-    SECTION("Empty query parameter value") {
+    SUBCASE("Empty query parameter value") {
         reader.set_data("GET /search?q=&p= HTTP/1.1\r\n\r\n");
         auto result = co_await parser.next();
         REQUIRE(result.has_value());
@@ -184,7 +184,7 @@ ASYNC_TEST_CASE("Parse headers") {
     StringReader reader;
     httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE, reader };
 
-    SECTION("Valid headers") {
+    SUBCASE("Valid headers") {
         reader.set_data(
             "GET /index.html HTTP/1.1\r\n"
             "Host: example.com\r\n"
@@ -205,7 +205,7 @@ ASYNC_TEST_CASE("Parse headers") {
         REQUIRE(user_agent.value() == "TestAgent/1.0");
     }
 
-    SECTION("Invalid header name") {
+    SUBCASE("Invalid header name") {
         reader.set_data(
             "GET /index.html HTTP/1.1\r\n"
             "Inva lid-Header: value\r\n"
@@ -221,7 +221,7 @@ ASYNC_TEST_CASE("Parse headers") {
         REQUIRE(result->error() == httc::RequestParserError::INVALID_HEADER);
     }
 
-    SECTION("Invalid header value") {
+    SUBCASE("Invalid header value") {
         reader.set_data(
             "GET /index.html HTTP/1.1\r\n"
             "Valid-Header: value\x01\x02\x03\r\n"
@@ -234,7 +234,7 @@ ASYNC_TEST_CASE("Parse headers") {
         REQUIRE(result->error() == httc::RequestParserError::INVALID_HEADER);
     }
 
-    SECTION("Header whitespace handling 1") {
+    SUBCASE("Header whitespace handling 1") {
         reader.set_data(
             "GET /index.html HTTP/1.1\r\n"
             "X-Custom-Header:    value with spaces   \r\n"
@@ -251,7 +251,7 @@ ASYNC_TEST_CASE("Parse headers") {
         REQUIRE(header.value() == "value with spaces");
     }
 
-    SECTION("Header whitespace handling 2") {
+    SUBCASE("Header whitespace handling 2") {
         reader.set_data(
             "GET /index.html HTTP/1.1\r\n"
             "X-Custom-Header:value with spaces\r\n"
@@ -268,7 +268,7 @@ ASYNC_TEST_CASE("Parse headers") {
         REQUIRE(header.value() == "value with spaces");
     }
 
-    SECTION("Header with whitespace 3") {
+    SUBCASE("Header with whitespace 3") {
         reader.set_data(
             "GET /index.html HTTP/1.1\r\n"
             "X-Custom-Header : value with spaces\r\n"
@@ -280,7 +280,7 @@ ASYNC_TEST_CASE("Parse headers") {
         REQUIRE(result->error() == httc::RequestParserError::INVALID_HEADER);
     }
 
-    SECTION("Missing colon in header") {
+    SUBCASE("Missing colon in header") {
         reader.set_data(
             "GET /index.html HTTP/1.1\r\n"
             "Invalid-Header value\r\n"
@@ -292,7 +292,7 @@ ASYNC_TEST_CASE("Parse headers") {
         REQUIRE(result->error() == httc::RequestParserError::INVALID_HEADER);
     }
 
-    SECTION("Empty header name") {
+    SUBCASE("Empty header name") {
         reader.set_data(
             "GET /index.html HTTP/1.1\r\n"
             ": value\r\n"
@@ -304,7 +304,7 @@ ASYNC_TEST_CASE("Parse headers") {
         REQUIRE(result->error() == httc::RequestParserError::INVALID_HEADER);
     }
 
-    SECTION("Empty header value") {
+    SUBCASE("Empty header value") {
         reader.set_data(
             "GET /index.html HTTP/1.1\r\n"
             "X-Empty-Header: \r\n"
@@ -321,7 +321,7 @@ ASYNC_TEST_CASE("Parse headers") {
         REQUIRE(header.value() == "");
     }
 
-    SECTION("Headers exceeding maximum size") {
+    SUBCASE("Headers exceeding maximum size") {
         std::string large_header_value(MAX_HEADER_SIZE, 'a');
         reader.set_data(
             "GET /index.html HTTP/1.1\r\n"
@@ -341,7 +341,7 @@ ASYNC_TEST_CASE("Parse Content-length bodies") {
     auto reader = StringReader{};
     httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE, reader };
 
-    SECTION("Valid Content-Length body") {
+    SUBCASE("Valid Content-Length body") {
         reader.set_data(
             "POST /submit HTTP/1.1\r\n"
             "Host: example.com\r\n"
@@ -361,7 +361,7 @@ ASYNC_TEST_CASE("Parse Content-length bodies") {
         REQUIRE(req.body == "Hello, World!");
     }
 
-    SECTION("Invalid Content-Length value") {
+    SUBCASE("Invalid Content-Length value") {
         reader.set_data(
             "POST /submit HTTP/1.1\r\n"
             "Host: example.com\r\n"
@@ -375,7 +375,7 @@ ASYNC_TEST_CASE("Parse Content-length bodies") {
         REQUIRE(result->error() == httc::RequestParserError::INVALID_HEADER);
     }
 
-    SECTION("Content-Length exceeds maximum size") {
+    SUBCASE("Content-Length exceeds maximum size") {
         reader.set_data(
             "POST /submit HTTP/1.1\r\n"
             "Host: example.com\r\n"
@@ -393,7 +393,7 @@ ASYNC_TEST_CASE("Parse chunked bodies") {
     auto reader = StringReader{};
     httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE, reader };
 
-    SECTION("Valid chunked body") {
+    SUBCASE("Valid chunked body") {
         reader.set_data(
             "POST /submit HTTP/1.1\r\n"
             "Host: example.com\r\n"
@@ -418,7 +418,7 @@ ASYNC_TEST_CASE("Parse chunked bodies") {
         REQUIRE(req.body == "Hello, World");
     }
 
-    SECTION("Invalid chunk size") {
+    SUBCASE("Invalid chunk size") {
         reader.set_data(
             "POST /submit HTTP/1.1\r\n"
             "Host: example.com\r\n"
@@ -435,7 +435,7 @@ ASYNC_TEST_CASE("Parse chunked bodies") {
         REQUIRE(result->error() == httc::RequestParserError::INVALID_CHUNK_ENCODING);
     }
 
-    SECTION("With trailers") {
+    SUBCASE("With trailers") {
         reader.set_data(
             "POST /submit HTTP/1.1\r\n"
             "Host: example.com\r\n"
@@ -471,7 +471,7 @@ ASYNC_TEST_CASE("Parse in multiple chunks") {
     auto reader = StringByteReader{};
     httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE, reader };
 
-    SECTION("Without body") {
+    SUBCASE("Without body") {
         reader.set_data(
             "GET /index.html HTTP/1.1\r\n"
             "Host: example.com\r\n"
@@ -491,7 +491,7 @@ ASYNC_TEST_CASE("Parse in multiple chunks") {
         REQUIRE(reader.is_eof());
     }
 
-    SECTION("With Content-Length body") {
+    SUBCASE("With Content-Length body") {
         reader.set_data(
             "POST /submit HTTP/1.1\r\n"
             "Host: example.com\r\n"
@@ -514,7 +514,7 @@ ASYNC_TEST_CASE("Parse in multiple chunks") {
         REQUIRE(reader.is_eof());
     }
 
-    SECTION("With chunked body") {
+    SUBCASE("With chunked body") {
         reader.set_data(
             "POST /submit HTTP/1.1\r\n"
             "Host: example.com\r\n"
@@ -643,7 +643,7 @@ ASYNC_TEST_CASE("Cookies") {
     StringReader reader;
     httc::RequestParser parser{ MAX_HEADER_SIZE, MAX_BODY_SIZE, reader };
 
-    SECTION("Single Cookie header") {
+    SUBCASE("Single Cookie header") {
         reader.set_data(
             "GET / HTTP/1.1\r\n"
             "Host: example.com\r\n"
@@ -659,7 +659,7 @@ ASYNC_TEST_CASE("Cookies") {
         REQUIRE(cookies.size() == 1);
     }
 
-    SECTION("Multiple Cookie headers") {
+    SUBCASE("Multiple Cookie headers") {
         reader.set_data(
             "GET / HTTP/1.1\r\n"
             "Host: example.com\r\n"
@@ -677,7 +677,7 @@ ASYNC_TEST_CASE("Cookies") {
         REQUIRE(cookies.at("theme") == "light");
     }
 
-    SECTION("Multiple cookies in one header") {
+    SUBCASE("Multiple cookies in one header") {
         reader.set_data(
             "GET / HTTP/1.1\r\n"
             "Host: example.com\r\n"

@@ -1,6 +1,6 @@
 #pragma once
 #include <asio.hpp>
-#include "doctest_compat.hpp"
+#include <doctest/doctest.h>
 
 template<typename F>
 void run_async_test(F&& test_coroutine_factory) {
@@ -15,9 +15,9 @@ void run_async_test(F&& test_coroutine_factory) {
 #define CONCAT_IMPL(a, b) a##b
 #define CONCAT(a, b) CONCAT_IMPL(a, b)
 
-#define ASYNC_TEST_CASE(name, ...) \
+#define ASYNC_TEST_CASE(name) \
     static asio::awaitable<void> CONCAT(_async_test_body_, __LINE__)(); \
-    TEST_CASE(name __VA_OPT__(, ) __VA_ARGS__) { \
+    TEST_CASE(name) { \
         run_async_test(CONCAT(_async_test_body_, __LINE__)); \
     } \
     asio::awaitable<void> CONCAT(_async_test_body_, __LINE__)()

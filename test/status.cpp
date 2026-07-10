@@ -1,7 +1,7 @@
-#include "doctest_compat.hpp"
+#include <doctest/doctest.h>
 #include <httc/status.hpp>
 
-TEST_CASE("StatusCode constexpr", "[status]") {
+TEST_CASE("StatusCode constexpr") {
     constexpr auto ok = httc::StatusCode::OK;
     static_assert(ok.code == 200);
 

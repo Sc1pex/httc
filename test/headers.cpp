@@ -1,5 +1,5 @@
 #include <algorithm>
-#include "doctest_compat.hpp"
+#include <doctest/doctest.h>
 #include <httc/headers.hpp>
 #include <vector>
 
@@ -9,7 +9,7 @@ TEST_CASE("Headers case-insensitive lookup") {
     headers.add("content-length", "123");
     headers.add("X-Custom-Header", "value1");
 
-    SECTION("Get existing headers with different casing") {
+    SUBCASE("Get existing headers with different casing") {
         auto ct = headers.get_one("content-type");
         REQUIRE(ct.has_value());
         REQUIRE(ct.value() == "application/json");
@@ -23,7 +23,7 @@ TEST_CASE("Headers case-insensitive lookup") {
         REQUIRE(xch.value() == "value1");
     }
 
-    SECTION("Get non-existing header") {
+    SUBCASE("Get non-existing header") {
         auto non_exist = headers.get_one("Non-Exist");
         REQUIRE(!non_exist.has_value());
     }
