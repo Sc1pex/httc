@@ -74,14 +74,14 @@ asio::awaitable<Response::FixedStream> Response::send_fixed(std::size_t content_
 }
 
 asio::awaitable<void> Response::ChunkedStream::write(std::string_view chunk) {
-    if (chunk.size() == 0) {
+    if (chunk.empty()) {
         // Do not write empty chunks because that indicates the end of the stream
         co_return;
     }
 
     auto chunk_size = std::format("{:X}\r\n", chunk.size());
 
-    co_return co_await m_parent.write_to_writer(
+    co_return co_await m_parent.get().write_to_writer(
         {
             asio::buffer(chunk_size),
             asio::buffer(chunk),
@@ -91,12 +91,12 @@ asio::awaitable<void> Response::ChunkedStream::write(std::string_view chunk) {
 }
 
 asio::awaitable<void> Response::ChunkedStream::end() {
-    m_parent.m_state = State::Sent;
-    co_return co_await m_parent.write_to_writer({ asio::buffer("0\r\n\r\n", 5) });
+    m_parent.get().m_state = State::Sent;
+    co_return co_await m_parent.get().write_to_writer({ asio::buffer("0\r\n\r\n", 5) });
 }
 
 asio::awaitable<void> Response::FixedStream::write(std::string_view data) {
-    co_return co_await m_parent.write_to_writer({ asio::buffer(data) });
+    co_return co_await m_parent.get().write_to_writer({ asio::buffer(data) });
 }
 
 awaitable<void> Response::send() {
@@ -121,9 +121,9 @@ awaitable<void> Response::send() {
 
     generate_head();
     std::vector<asio::const_buffer> buffers;
-    buffers.push_back(asio::buffer(m_head_buffer));
+    buffers.emplace_back(asio::buffer(m_head_buffer));
     if (!m_head && !m_body.empty()) {
-        buffers.push_back(asio::buffer(m_body));
+        buffers.emplace_back(asio::buffer(m_body));
     }
     co_return co_await write_to_writer(buffers);
 }

@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.28)
 
+# Required for Unity builds on C++23 targets: CMake's default module scanning
+# silently disables UNITY_BUILD for any target that uses C++23.
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
 project(
     httc
     VERSION 0.3.0
@@ -8,10 +12,20 @@ project(
 
 include(FetchContent)
 
+# Store all FetchContent downloads in a shared directory so all build
+# configurations can reuse them and CI caching is straightforward.
+set(FETCHCONTENT_BASE_DIR "${CMAKE_SOURCE_DIR}/.deps" CACHE PATH "" FORCE)
+
+find_program(MOLD_PATH mold)
+if(MOLD_PATH)
+    add_link_options(-fuse-ld=mold)
+endif()
+
 FetchContent_Declare(
     asio
     GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
     GIT_TAG        asio-1-30-2
+    GIT_SHALLOW    TRUE
 )
 FetchContent_MakeAvailable(asio)
 
@@ -20,9 +34,63 @@ option(HTTC_BUILD_TESTS "Build tests" ${PROJECT_IS_TOP_LEVEL})
 option(HTTC_BUILD_BENCHMARKS "Build benchmarks" OFF)
 
 add_library(asio INTERFACE)
-target_include_directories(asio INTERFACE ${asio_SOURCE_DIR}/asio/include)
+target_include_directories(asio SYSTEM INTERFACE ${asio_SOURCE_DIR}/asio/include)
 target_compile_definitions(asio INTERFACE ASIO_STANDALONE)
 target_compile_definitions(asio INTERFACE ASIO_NO_DEPRECATED)
+
+# Compiler warnings configuration
+add_library(httc_warnings INTERFACE)
+add_library(httc::warnings ALIAS httc_warnings)
+
+option(HTTC_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ${PROJECT_IS_TOP_LEVEL})
+
+set(CLANG_WARNINGS
+    -Wall
+    -Wextra
+    -Wnon-virtual-dtor
+    -Wold-style-cast
+    -Wcast-align
+    -Wunused
+    -Woverloaded-virtual
+    -Wpedantic
+    -Wconversion
+    -Wnull-dereference
+    -Wdouble-promotion
+    -Wformat=2
+    -Wimplicit-fallthrough
+)
+
+set(GCC_WARNINGS
+    ${CLANG_WARNINGS}
+    -Wmisleading-indentation
+    -Wduplicated-cond
+    -Wduplicated-branches
+    -Wlogical-op
+    -Wuseless-cast
+    -Wsuggest-override
+)
+# GCC's optimizer triggers false-positive -Wnull-dereference warnings
+# when inlining Asio's executor comparison and scheduler logic (Asio Issue #1616).
+list(REMOVE_ITEM GCC_WARNINGS -Wnull-dereference)
+
+# GCC (specifically with UBSan and -O3) triggers false-positive -Wmismatched-new-delete warnings
+# when tracing Asio's custom coroutine frame aligned allocators back to std::free.
+list(APPEND GCC_WARNINGS -Wno-mismatched-new-delete)
+
+# GCC triggers -Wsubobject-linkage for local lambdas inside C++20 coroutine frames
+# when compiled under Unity builds.
+list(APPEND GCC_WARNINGS -Wno-subobject-linkage)
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_options(httc_warnings INTERFACE ${CLANG_WARNINGS})
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(httc_warnings INTERFACE ${GCC_WARNINGS})
+endif()
+
+if(HTTC_WARNINGS_AS_ERRORS)
+    target_compile_options(httc_warnings INTERFACE -Werror)
+endif()
+
 
 add_subdirectory(src)
 
@@ -38,11 +106,13 @@ endif()
 
 if(HTTC_BUILD_TESTS)
     FetchContent_Declare(
-        Catch2
-        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-        GIT_TAG        v3.12.0
+        doctest
+        GIT_REPOSITORY https://github.com/doctest/doctest.git
+        GIT_TAG        v2.5.3
+        GIT_SHALLOW    TRUE
+        SYSTEM
     )
-    FetchContent_MakeAvailable(Catch2)
+    FetchContent_MakeAvailable(doctest)
     
     enable_testing()
     add_subdirectory(test)

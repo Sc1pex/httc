@@ -1,5 +1,6 @@
 #include "httc/utils/file_handlers.hpp"
 #include <format>
+#include <utility>
 #include "httc/utils/fs.hpp"
 
 namespace httc::utils {
@@ -7,12 +8,13 @@ namespace httc::utils {
 FileHandler::FileHandler(std::filesystem::path file_path) : m_file_path(std::move(file_path)) {
 }
 
-asio::awaitable<void> FileHandler::operator()(const Request&, Response& res) const {
+asio::awaitable<void>
+    FileHandler::operator()([[maybe_unused]] const Request& req, Response& res) const {
     co_await serve_file(m_file_path, res);
 }
 
 DirectoryHandler::DirectoryHandler(std::filesystem::path base_dir, bool allow_listing)
-: m_base_dir(base_dir), m_allow_listing(allow_listing) {
+: m_base_dir(std::move(base_dir)), m_allow_listing(allow_listing) {
 }
 
 asio::awaitable<void> DirectoryHandler::operator()(const Request& req, Response& res) const {
@@ -22,7 +24,7 @@ asio::awaitable<void> DirectoryHandler::operator()(const Request& req, Response&
         co_return;
     }
 
-    std::filesystem::path full_path = *path_opt;
+    const std::filesystem::path& full_path = *path_opt;
     std::error_code ec;
 
     if (std::filesystem::is_directory(full_path, ec)) {

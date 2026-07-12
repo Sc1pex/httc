@@ -1,6 +1,7 @@
 #pragma once
 
 #include <asio/any_io_executor.hpp>
+#include <functional>
 #include <optional>
 #include "httc/headers.hpp"
 #include "httc/io.hpp"
@@ -17,14 +18,12 @@ class Response {
 public:
     template<Writer W>
     Response(W& writer, bool is_head_response = false)
-    : m_writer_ptr(&writer),
+    : status(StatusCode::OK), m_writer_ptr(&writer),
       m_write_fn([](void* w, std::vector<asio::const_buffer> b) -> asio::awaitable<void> {
           return static_cast<W*>(w)->write(std::move(b));
       }),
       m_head(is_head_response) {
-        status = StatusCode::OK;
         headers.set("Content-Length", "0");
-        m_state = State::Uninitialized;
     }
 
     static Response from_status(SocketWriter& writer, StatusCode status);
@@ -40,7 +39,7 @@ public:
 
     private:
         friend class Response;
-        Response& m_parent;
+        std::reference_wrapper<Response> m_parent;
         ChunkedStream(Response& parent) : m_parent(parent) {
         }
     };
@@ -51,7 +50,7 @@ public:
 
     private:
         friend class Response;
-        Response& m_parent;
+        std::reference_wrapper<Response> m_parent;
         FixedStream(Response& parent) : m_parent(parent) {
         }
     };
@@ -75,7 +74,7 @@ public:
     Headers headers;
     std::vector<std::string> cookies;
 
-    bool is_head() {
+    bool is_head() const {
         return m_head;
     }
 
@@ -87,7 +86,7 @@ public:
     }
 
 private:
-    enum class State {
+    enum class State : uint8_t {
         Uninitialized,
         StreamChunk,
         StreamFixed,
@@ -102,19 +101,19 @@ private:
         m_thread_pool_executor = std::move(ex);
     }
 
-private:
     void* m_writer_ptr;
     WriteFn m_write_fn;
 
     std::string m_body;
     bool m_head;
-    State m_state;
+    State m_state{};
 
     std::string m_head_buffer;
     std::optional<asio::any_io_executor> m_thread_pool_executor;
 
     friend asio::awaitable<void> handle_conn(
-        asio::ip::tcp::socket, std::shared_ptr<Router>, ServerConfig, asio::any_io_executor
+        asio::ip::tcp::socket socket, std::shared_ptr<Router> router, ServerConfig cfg,
+        asio::any_io_executor thread_pool_executor
     );
 };
 }

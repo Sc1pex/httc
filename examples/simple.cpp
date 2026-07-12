@@ -13,7 +13,7 @@ int main() {
     });
 
     asio::io_context io_ctx;
-    int port = 8080;
+    uint16_t port = 8080;
 
     std::println("Listening on port {}", port);
     httc::bind_and_listen("0.0.0.0", port, router, io_ctx);

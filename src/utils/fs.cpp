@@ -4,7 +4,6 @@
 #include <asio/this_coro.hpp>
 #include <asio/use_awaitable.hpp>
 #include <fstream>
-#include <memory>
 #include "httc/utils/mime.hpp"
 
 namespace httc::utils {
@@ -35,8 +34,8 @@ std::expected<DirectoryListing, std::error_code> list_directory(const std::files
         return std::unexpected(ec);
     }
 
-    std::sort(dirs.begin(), dirs.end());
-    std::sort(files.begin(), files.end());
+    std::ranges::sort(dirs);
+    std::ranges::sort(files);
 
     DirectoryListing listing;
     listing.files_start_index = dirs.size();
@@ -69,63 +68,48 @@ asio::awaitable<void> serve_file(const std::filesystem::path& path, Response& re
         res.headers.set("Content-Type", "application/octet-stream");
     }
 
-    auto stream = co_await res.send_fixed(size);
-
-    // Use thread pool executor for blocking file I/O
-    auto thread_pool_executor = res.thread_pool_executor();
-
-    auto file = std::make_shared<std::ifstream>(path, std::ios::binary);
-    if (!*file) {
+    std::ifstream file{ path, std::ios::binary };
+    if (!file) {
         res.status = StatusCode::FORBIDDEN;
         co_return;
     }
 
     constexpr std::size_t buffer_size = 8192;
     std::size_t bytes_remaining = size;
+    std::array<char, buffer_size> read_buf{};
+
+    auto stream = co_await res.send_fixed(size);
 
     while (bytes_remaining > 0) {
         std::size_t to_read = std::min(buffer_size, bytes_remaining);
 
         auto read_result = co_await asio::async_initiate<
-            decltype(asio::use_awaitable), void(std::optional<std::string>)>(
-            [](auto handler, asio::any_io_executor file_executor,
-               std::shared_ptr<std::ifstream> file_ptr, std::size_t to_read) {
-                // Post the blocking file I/O to the thread pool
+            decltype(asio::use_awaitable), void(std::optional<std::string_view>)>(
+            [&file, to_read, &read_buf, pool_ex = res.thread_pool_executor()](auto handler) {
                 asio::post(
-                    file_executor, [handler = std::move(handler), file_ptr, to_read]() mutable {
-                        std::string buffer(to_read, '\0');
-                        file_ptr->read(buffer.data(), to_read);
-                        auto bytes_read = file_ptr->gcount();
+                    pool_ex, [handler = std::move(handler), &file, to_read, &read_buf]() mutable {
+                        file.read(read_buf.data(), static_cast<std::streamsize>(to_read));
+                        auto bytes_read = static_cast<size_t>(file.gcount());
 
-                        if (bytes_read <= 0) {
-                            asio::post(
-                                asio::get_associated_executor(handler),
-                                [handler = std::move(handler)]() mutable {
-                                    handler(std::nullopt);
-                                }
-                            );
-                            return;
+                        std::optional<std::string_view> result = std::nullopt;
+                        if (bytes_read > 0) {
+                            result = std::string_view{ read_buf.data(), bytes_read };
                         }
 
-                        buffer.resize(bytes_read);
-                        // Post the result back to the event loop
-                        asio::post(
-                            asio::get_associated_executor(handler),
-                            [handler = std::move(handler), buffer = std::move(buffer)]() mutable {
-                                handler(std::move(buffer));
-                            }
-                        );
+                        auto result_ex = asio::get_associated_executor(handler);
+                        asio::post(result_ex, [handler = std::move(handler), result]() mutable {
+                            handler(std::move(result));
+                        });
                     }
                 );
             },
-            asio::use_awaitable, thread_pool_executor, file, to_read
+            asio::use_awaitable
         );
 
         if (!read_result) {
             // Read error occurred
             co_return;
         }
-
         co_await stream.write(*read_result);
         bytes_remaining -= read_result->size();
     }

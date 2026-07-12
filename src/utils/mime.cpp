@@ -46,7 +46,7 @@ std::optional<std::string_view> mime_type(const std::filesystem::path& path) {
     std::string extension = path.extension().string();
 
     // Convert to lowercase
-    std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
+    std::ranges::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
 
     auto it = mime_types.find(extension);
     if (it != mime_types.end()) {

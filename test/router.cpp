@@ -1,5 +1,5 @@
+#include <doctest/doctest.h>
 #include <asio.hpp>
-#include <catch2/catch_test_macros.hpp>
 #include <httc/request.hpp>
 #include <httc/response.hpp>
 #include <httc/router.hpp>
@@ -10,7 +10,7 @@ namespace methods = httc::methods;
 using asio::awaitable;
 
 struct MockSocket {
-    asio::awaitable<void> write(std::vector<asio::const_buffer> buffers) {
+    static asio::awaitable<void> write([[maybe_unused]] std::vector<asio::const_buffer> buffers) {
         // Discard all data
         co_return;
     }
@@ -26,7 +26,7 @@ asio::awaitable<httc::Response> get_response(httc::Router& router, httc::Request
 ASYNC_TEST_CASE("Basic routing") {
     httc::Router router;
 
-    SECTION("Single path no method") {
+    SUBCASE("Single path no method") {
         int called = 0;
         router.route("/test", [&](const httc::Request&, httc::Response&) -> awaitable<void> {
             called++;
@@ -51,7 +51,7 @@ ASYNC_TEST_CASE("Basic routing") {
         REQUIRE(called == 2);
     }
 
-    SECTION("Single path with method") {
+    SUBCASE("Single path with method") {
         int called = 0;
         router.route(
             "/test", httc::MethodWrapper<"GET", "POST">(
@@ -86,7 +86,7 @@ ASYNC_TEST_CASE("Basic routing") {
         REQUIRE(called == 2);
     }
 
-    SECTION("Single path with method and global") {
+    SUBCASE("Single path with method and global") {
         int called_global = 0;
         int called_method = 0;
         router.route("/test", [&](const httc::Request&, httc::Response&) -> awaitable<void> {
@@ -191,7 +191,7 @@ TEST_CASE("Invalid URIs") {
 ASYNC_TEST_CASE("No matching route") {
     httc::Router router;
 
-    SECTION("No path") {
+    SUBCASE("No path") {
         router.route("/test", [](const httc::Request&, httc::Response&) -> awaitable<void> {
             co_return;
         });
@@ -204,7 +204,7 @@ ASYNC_TEST_CASE("No matching route") {
         REQUIRE(res.status.code == 404);
     }
 
-    SECTION("Path but no method") {
+    SUBCASE("Path but no method") {
         router.route(
             "/test", methods::post([](const httc::Request&, httc::Response&) -> awaitable<void> {
                 co_return;
@@ -254,7 +254,7 @@ ASYNC_TEST_CASE("Complex routing 1") {
 
     httc::Request req;
 
-    SECTION("Exact match") {
+    SUBCASE("Exact match") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/abc/def");
 
@@ -263,7 +263,7 @@ ASYNC_TEST_CASE("Complex routing 1") {
         verify_called(0);
     }
 
-    SECTION("Param match") {
+    SUBCASE("Param match") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/abc/value");
 
@@ -272,7 +272,7 @@ ASYNC_TEST_CASE("Complex routing 1") {
         verify_called(1);
     }
 
-    SECTION("Wildcard match 1") {
+    SUBCASE("Wildcard match 1") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/abc/abc/abc");
 
@@ -281,7 +281,7 @@ ASYNC_TEST_CASE("Complex routing 1") {
         verify_called(3);
     }
 
-    SECTION("Wildcard match 2") {
+    SUBCASE("Wildcard match 2") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/abc/abc/very/deep/path");
 
@@ -324,7 +324,7 @@ ASYNC_TEST_CASE("Complex routing 2") {
     };
 
     httc::Request req;
-    SECTION("Exact match with method") {
+    SUBCASE("Exact match with method") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/a/b");
 
@@ -333,7 +333,7 @@ ASYNC_TEST_CASE("Complex routing 2") {
         verify_called(0);
     }
 
-    SECTION("Param match with method") {
+    SUBCASE("Param match with method") {
         req.method = "POST";
         req.uri = *httc::URI::parse("/a/value");
 
@@ -342,7 +342,7 @@ ASYNC_TEST_CASE("Complex routing 2") {
         verify_called(1);
     }
 
-    SECTION("Wildcard match no method") {
+    SUBCASE("Wildcard match no method") {
         req.method = "GET";
         req.uri = *httc::URI::parse("/a/anything/here");
 
@@ -374,7 +374,7 @@ ASYNC_TEST_CASE("Param and wildcard extraction") {
 
 ASYNC_TEST_CASE("Middleware") {
     httc::Router router;
-    std::vector<int> call_order;
+    std::vector<size_t> call_order;
 
     router
         .wrap([&](const httc::Request& req, httc::Response& res, auto next) -> awaitable<void> {
@@ -396,7 +396,7 @@ ASYNC_TEST_CASE("Middleware") {
                      )
         );
 
-    SECTION("GET request") {
+    SUBCASE("GET request") {
         httc::Request req;
         req.method = "GET";
         req.uri = *httc::URI::parse("/test");
@@ -405,12 +405,12 @@ ASYNC_TEST_CASE("Middleware") {
         REQUIRE(res.status.code == 200);
 
         REQUIRE(call_order.size() == 5);
-        for (int i = 0; i < 5; i++) {
+        for (size_t i = 0; i < 5; i++) {
             CHECK(call_order[i] == i + 1);
         }
     }
 
-    SECTION("OPTIONS request") {
+    SUBCASE("OPTIONS request") {
         httc::Request req;
         req.method = "OPTIONS";
         req.uri = *httc::URI::parse("/test");

@@ -3,7 +3,7 @@
 
 namespace httc {
 
-Request::Request() : uri(*URI::parse("/")) {
+Request::Request() : uri(URI::root()) {
 }
 
 }

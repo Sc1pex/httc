@@ -16,7 +16,7 @@ public:
 
     asio::awaitable<void> operator()(const Request& req, Response& res) const;
 
-    std::vector<std::string> getAllowedMethods() const {
+    [[nodiscard]] static std::vector<std::string> getAllowedMethods() {
         return { "GET" };
     }
 
@@ -30,17 +30,17 @@ public:
 
     asio::awaitable<void> operator()(const Request& req, Response& res) const;
 
-    std::vector<std::string> getAllowedMethods() const {
+    [[nodiscard]] static std::vector<std::string> getAllowedMethods() {
         return { "GET" };
     }
 
 private:
-    std::string generate_listing_html(
+    [[nodiscard]] std::string generate_listing_html(
         const std::string& url_path, const struct DirectoryListing& listing
     ) const;
-    std::optional<std::filesystem::path> sanitize_path(std::string_view request_path) const;
+    [[nodiscard]] std::optional<std::filesystem::path>
+        sanitize_path(std::string_view request_path) const;
 
-private:
     std::filesystem::path m_base_dir;
     bool m_allow_listing;
 };

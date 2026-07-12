@@ -1,8 +1,8 @@
-#include <catch2/catch_test_macros.hpp>
+#include <doctest/doctest.h>
 #include <httc/uri.hpp>
 
 TEST_CASE("Parse valid URIs") {
-    SECTION("Simple path") {
+    SUBCASE("Simple path") {
         auto uri = httc::URI::parse("/index.html");
         REQUIRE(uri.has_value());
         REQUIRE(uri->paths().size() == 1);
@@ -10,7 +10,7 @@ TEST_CASE("Parse valid URIs") {
         REQUIRE(uri->query().empty());
     }
 
-    SECTION("Root path") {
+    SUBCASE("Root path") {
         auto uri = httc::URI::parse("/");
         REQUIRE(uri.has_value());
         REQUIRE(uri->paths().size() == 1);
@@ -18,7 +18,7 @@ TEST_CASE("Parse valid URIs") {
         REQUIRE(uri->query().empty());
     }
 
-    SECTION("Multiple path segments") {
+    SUBCASE("Multiple path segments") {
         auto uri = httc::URI::parse("/api/v1/users");
         REQUIRE(uri.has_value());
         REQUIRE(uri->paths().size() == 3);
@@ -28,7 +28,7 @@ TEST_CASE("Parse valid URIs") {
         REQUIRE(uri->query().empty());
     }
 
-    SECTION("Path with trailing slash") {
+    SUBCASE("Path with trailing slash") {
         auto uri = httc::URI::parse("/api/v1/users/");
         REQUIRE(uri.has_value());
         REQUIRE(uri->paths().size() == 4);
@@ -39,7 +39,7 @@ TEST_CASE("Parse valid URIs") {
         REQUIRE(uri->query().empty());
     }
 
-    SECTION("Path with parameters") {
+    SUBCASE("Path with parameters") {
         auto uri = httc::URI::parse("/api/v1/users/:userId");
         REQUIRE(uri.has_value());
         REQUIRE(uri->paths().size() == 4);
@@ -50,7 +50,7 @@ TEST_CASE("Parse valid URIs") {
         REQUIRE(uri->query().empty());
     }
 
-    SECTION("Path with wildcard") {
+    SUBCASE("Path with wildcard") {
         auto uri = httc::URI::parse("/files/*");
         REQUIRE(uri.has_value());
         REQUIRE(uri->paths().size() == 2);
@@ -61,7 +61,7 @@ TEST_CASE("Parse valid URIs") {
 }
 
 TEST_CASE("Parse URIs with query parameters") {
-    SECTION("Single query parameter") {
+    SUBCASE("Single query parameter") {
         auto uri = httc::URI::parse("/search?q=test");
         REQUIRE(uri.has_value());
         REQUIRE(uri->paths().size() == 1);
@@ -71,7 +71,7 @@ TEST_CASE("Parse URIs with query parameters") {
         REQUIRE(uri->query()[0].second == "test");
     }
 
-    SECTION("Multiple query parameters") {
+    SUBCASE("Multiple query parameters") {
         auto uri = httc::URI::parse("/search?q=test&page=1&limit=10");
         REQUIRE(uri.has_value());
         REQUIRE(uri->paths().size() == 1);
@@ -85,7 +85,7 @@ TEST_CASE("Parse URIs with query parameters") {
         REQUIRE(uri->query()[2].second == "10");
     }
 
-    SECTION("Query parameter with empty value") {
+    SUBCASE("Query parameter with empty value") {
         auto uri = httc::URI::parse("/search?q=&page=1");
         REQUIRE(uri.has_value());
         REQUIRE(uri->paths().size() == 1);
@@ -97,7 +97,7 @@ TEST_CASE("Parse URIs with query parameters") {
         REQUIRE(uri->query()[1].second == "1");
     }
 
-    SECTION("Query parameter without value") {
+    SUBCASE("Query parameter without value") {
         auto uri = httc::URI::parse("/search?debug&verbose");
         REQUIRE(uri.has_value());
         REQUIRE(uri->paths().size() == 1);
@@ -109,7 +109,7 @@ TEST_CASE("Parse URIs with query parameters") {
         REQUIRE(uri->query()[1].second == "");
     }
 
-    SECTION("Empty query string") {
+    SUBCASE("Empty query string") {
         auto uri = httc::URI::parse("/search?");
         REQUIRE(uri.has_value());
         REQUIRE(uri->paths().size() == 1);
@@ -119,17 +119,17 @@ TEST_CASE("Parse URIs with query parameters") {
 }
 
 TEST_CASE("Parse invalid URIs") {
-    SECTION("Missing leading slash") {
+    SUBCASE("Missing leading slash") {
         auto uri = httc::URI::parse("invalid/path");
         REQUIRE(!uri.has_value());
     }
 
-    SECTION("Only query string") {
+    SUBCASE("Only query string") {
         auto uri = httc::URI::parse("?q=test");
         REQUIRE(!uri.has_value());
     }
 
-    SECTION("Wildcard in the middle") {
+    SUBCASE("Wildcard in the middle") {
         auto uri = httc::URI::parse("/files/*/image.png");
         REQUIRE(!uri.has_value());
     }
@@ -152,32 +152,32 @@ TEST_CASE("URI matching") {
     REQUIRE(uri6.has_value());
     REQUIRE(uri7.has_value());
 
-    SECTION("Full match") {
+    SUBCASE("Full match") {
         REQUIRE(uri1->match(*uri5) == httc::URIMatch::FULL_MATCH);
     }
 
-    SECTION("Parameter match") {
+    SUBCASE("Parameter match") {
         REQUIRE(uri3->match(*uri2) == httc::URIMatch::PARAM_MATCH);
     }
 
-    SECTION("Wildcard match") {
+    SUBCASE("Wildcard match") {
         REQUIRE(uri4->match(*uri2) == httc::URIMatch::WILD_MATCH);
         REQUIRE(uri4->match(*uri1) == httc::URIMatch::WILD_MATCH);
         REQUIRE(uri7->match(*uri2) == httc::URIMatch::WILD_MATCH);
     }
 
-    SECTION("No match") {
+    SUBCASE("No match") {
         REQUIRE(uri1->match(*uri2) == httc::URIMatch::NO_MATCH);
         REQUIRE(uri2->match(*uri1) == httc::URIMatch::NO_MATCH);
         REQUIRE(uri3->match(*uri1) == httc::URIMatch::NO_MATCH);
     }
 
-    SECTION("Trailing slash no match") {
+    SUBCASE("Trailing slash no match") {
         REQUIRE(uri1->match(*uri6) == httc::URIMatch::NO_MATCH);
         REQUIRE(uri6->match(*uri1) == httc::URIMatch::NO_MATCH);
     }
 
-    SECTION("Match both ways") {
+    SUBCASE("Match both ways") {
         auto uris = { uri1, uri2, uri3, uri4, uri5 };
         for (const auto& u1 : uris) {
             for (const auto& u2 : uris) {
@@ -186,7 +186,7 @@ TEST_CASE("URI matching") {
         }
     }
 
-    SECTION("Different path lengths") {
+    SUBCASE("Different path lengths") {
         auto short_uri = httc::URI::parse("/api/v1");
         auto long_uri = httc::URI::parse("/api/v1/users/123/details");
 
@@ -197,7 +197,7 @@ TEST_CASE("URI matching") {
         REQUIRE(long_uri->match(*short_uri) == httc::URIMatch::NO_MATCH);
     }
 
-    SECTION("Parameters full match 1") {
+    SUBCASE("Parameters full match 1") {
         auto uri1 = httc::URI::parse("/api/:version/users");
         auto uri2 = httc::URI::parse("/api/:ver/users");
 
@@ -207,7 +207,7 @@ TEST_CASE("URI matching") {
         REQUIRE(uri1->match(*uri2) == httc::URIMatch::FULL_MATCH);
     }
 
-    SECTION("Parameters full match 2") {
+    SUBCASE("Parameters full match 2") {
         auto uri1 = httc::URI::parse("/api/users/:id");
         auto uri2 = httc::URI::parse("/api/:user/123");
 
@@ -217,7 +217,7 @@ TEST_CASE("URI matching") {
         REQUIRE(uri1->match(*uri2) == httc::URIMatch::FULL_MATCH);
     }
 
-    SECTION("Wild match base") {
+    SUBCASE("Wild match base") {
         auto uri1 = httc::URI::parse("/abc/*");
         auto uri2 = httc::URI::parse("/abc");
 

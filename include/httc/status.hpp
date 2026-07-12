@@ -19,7 +19,7 @@ public:
 
     constexpr bool operator==(const StatusCode& other) const = default;
 
-    constexpr std::optional<std::string_view> reason() const {
+    [[nodiscard]] constexpr std::optional<std::string_view> reason() const {
         switch (code) {
         case 100:
             return "Continue";
@@ -152,8 +152,7 @@ public:
 };
 
 constexpr StatusCode StatusCode::create_unchecked(int c) {
-    StatusCode status;
-    status.code = c;
+    StatusCode status{ .code = c };
     return status;
 }
 

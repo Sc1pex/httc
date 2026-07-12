@@ -3,14 +3,13 @@
 
 namespace httc {
 
-SocketReader::SocketReader(asio::ip::tcp::socket& socket, const ServerConfig& cfg)
-: m_sock(socket), m_cfg(cfg) {
+SocketReader::SocketReader(asio::ip::tcp::socket& socket) : m_sock(socket) {
 }
 
 asio::awaitable<std::expected<std::string_view, ReaderError>> SocketReader::pull() {
     std::size_t n = 0;
     asio::error_code ec;
-    n = co_await m_sock.async_read_some(
+    n = co_await m_sock.get().async_read_some(
         asio::buffer(m_buffer), asio::redirect_error(asio::use_awaitable, ec)
     );
 
@@ -29,6 +28,6 @@ SocketWriter::SocketWriter(asio::ip::tcp::socket& socket) : m_sock(socket) {
 }
 
 asio::awaitable<void> SocketWriter::write(std::vector<asio::const_buffer> buffers) {
-    co_await asio::async_write(m_sock, buffers, asio::use_awaitable);
+    co_await asio::async_write(m_sock.get(), buffers, asio::use_awaitable);
 }
 }

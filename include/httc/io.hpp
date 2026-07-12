@@ -4,13 +4,14 @@
 #include <asio/buffer.hpp>
 #include <asio/ip/tcp.hpp>
 #include <expected>
+#include <functional>
 #include <string_view>
 #include <vector>
 #include "httc/server_config.hpp"
 
 namespace httc {
 
-enum class ReaderError {
+enum class ReaderError : uint8_t {
     TIMEOUT,
     CLOSED,
     UNKNOWN,
@@ -28,13 +29,12 @@ concept Writer = requires(T t, std::vector<asio::const_buffer> b) {
 
 class SocketReader {
 public:
-    SocketReader(asio::ip::tcp::socket& socket, const ServerConfig& cfg);
+    SocketReader(asio::ip::tcp::socket& socket);
     asio::awaitable<std::expected<std::string_view, ReaderError>> pull();
 
 private:
-    std::array<char, 8192> m_buffer;
-    asio::ip::tcp::socket& m_sock;
-    const ServerConfig& m_cfg;
+    std::array<char, 8192> m_buffer{};
+    std::reference_wrapper<asio::ip::tcp::socket> m_sock;
 };
 
 class SocketWriter {
@@ -43,7 +43,7 @@ public:
     asio::awaitable<void> write(std::vector<asio::const_buffer> buffers);
 
 private:
-    asio::ip::tcp::socket& m_sock;
+    std::reference_wrapper<asio::ip::tcp::socket> m_sock;
 };
 
 }

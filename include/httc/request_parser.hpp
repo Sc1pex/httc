@@ -3,6 +3,7 @@
 #include <asio.hpp>
 #include <charconv>
 #include <expected>
+#include <functional>
 #include <optional>
 #include <string_view>
 #include "httc/headers.hpp"
@@ -13,7 +14,7 @@
 
 namespace httc {
 
-enum class RequestParserError {
+enum class RequestParserError : uint8_t {
     READER_CLOSED,
     INVALID_REQUEST_LINE,
     INVALID_HEADER,
@@ -35,7 +36,7 @@ public:
     asio::awaitable<std::optional<ParseResult>> next();
 
 private:
-    enum class State {
+    enum class State : uint8_t {
         PARSE_REQUEST_LINE,
         PARSE_HEADERS,
         PARSE_BODY_CHUNKED_SIZE,
@@ -68,7 +69,6 @@ private:
     asio::awaitable<std::optional<RequestParserError>>
         parse_header(std::string_view header_line, Headers& target);
 
-private:
     Request m_req;
     State m_state;
 
@@ -77,14 +77,14 @@ private:
     std::string_view m_view;
     std::size_t m_view_start = 0;
 
-    std::size_t m_chunk_bytes_remaining;
+    std::size_t m_chunk_bytes_remaining = 0;
 
     std::size_t m_max_headers_size;
     // Current headers size, including request line and CRLFs
-    std::size_t m_current_headers_size;
+    std::size_t m_current_headers_size = 0;
     std::size_t m_max_body_size;
 
-    R& m_reader;
+    std::reference_wrapper<R> m_reader;
 };
 
 }
@@ -93,9 +93,8 @@ namespace httc {
 
 template<Reader R>
 RequestParser<R>::RequestParser(std::size_t max_headers_size, std::size_t max_body_size, R& reader)
-: m_max_headers_size(max_headers_size), m_max_body_size(max_body_size), m_reader(reader) {
-    m_state = State::PARSE_REQUEST_LINE;
-    m_current_headers_size = 0;
+: m_state(State::PARSE_REQUEST_LINE), m_max_headers_size(max_headers_size),
+  m_max_body_size(max_body_size), m_reader(reader) {
 }
 
 template<Reader R>
@@ -149,7 +148,7 @@ asio::awaitable<std::optional<ParseResult>> RequestParser<R>::next() {
 
 template<Reader R>
 asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_request_line() {
-    std::size_t crlf;
+    std::size_t crlf = 0;
     while (true) {
         auto crlf_res = co_await pull_until("\r\n", m_max_headers_size);
         if (!crlf_res.has_value()) {
@@ -230,7 +229,9 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_heade
     auto headers_end = headers_end_res.value();
 
     // Copy the raw header string in the request for storing refrences to it in the headers map
+    // NOLINTNEXTLINE(modernize-avoid-c-arrays,cppcoreguidelines-avoid-c-arrays)
     m_req.m_raw_headers = std::make_unique<char[]>(headers_end + 4);
+    // NOLINTNEXTLINE(bugprone-suspicious-stringview-data-usage)
     std::memcpy(m_req.m_raw_headers.get(), m_view.data(), headers_end + 4);
     auto headers = std::string_view(m_req.m_raw_headers.get(), headers_end + 4);
 
@@ -359,6 +360,7 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::prepare_par
 template<Reader R>
 asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_body_content_length() {
     // We know Content-Length is present because of the state machine
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     auto content_length_sv = *m_req.headers.get_one("Content-Length");
     std::size_t content_length = 0;
 
@@ -374,7 +376,7 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_body_
     }
 
     while (m_view.size() < content_length) {
-        auto data_opt = co_await m_reader.pull();
+        auto data_opt = co_await m_reader.get().pull();
         if (!data_opt.has_value()) {
             co_return RequestParserError::READER_CLOSED;
         }
@@ -417,7 +419,7 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_body_
 template<Reader R>
 asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_body_chunked_data() {
     while (m_view.size() < m_chunk_bytes_remaining + 2) {
-        auto data_opt = co_await m_reader.pull();
+        auto data_opt = co_await m_reader.get().pull();
         if (!data_opt.has_value()) {
             co_return RequestParserError::READER_CLOSED;
         }
@@ -514,7 +516,7 @@ asio::awaitable<std::expected<std::size_t, RequestParserError>> RequestParser<R>
             co_return std::unexpected(overflow_error);
         }
 
-        auto data_opt = co_await m_reader.pull();
+        auto data_opt = co_await m_reader.get().pull();
         if (!data_opt.has_value()) {
             co_return std::unexpected(RequestParserError::READER_CLOSED);
         }

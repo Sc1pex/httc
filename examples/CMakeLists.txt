@@ -1,8 +1,8 @@
 add_executable(simple simple.cpp)
-target_link_libraries(simple PRIVATE httc)
+target_link_libraries(simple PRIVATE httc httc_warnings)
 
 add_executable(cookies cookies.cpp)
-target_link_libraries(cookies PRIVATE httc)
+target_link_libraries(cookies PRIVATE httc httc_warnings)
 
 add_executable(static_server static_server/main.cpp)
-target_link_libraries(static_server PRIVATE httc)
+target_link_libraries(static_server PRIVATE httc httc_warnings)

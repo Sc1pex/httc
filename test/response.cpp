@@ -1,4 +1,4 @@
-#include <catch2/catch_test_macros.hpp>
+#include <doctest/doctest.h>
 #include <httc/response.hpp>
 #include <httc/status.hpp>
 #include <string>
@@ -27,7 +27,7 @@ ASYNC_TEST_CASE("Response - Buffered Body") {
     MockWriter writer;
     Response res(writer);
 
-    SECTION("Simple Body") {
+    SUBCASE("Simple Body") {
         res.status = StatusCode::OK;
         res.set_body("Hello World");
 
@@ -39,7 +39,7 @@ ASYNC_TEST_CASE("Response - Buffered Body") {
         REQUIRE(writer.output.find("\r\n\r\nHello World") != std::string::npos);
     }
 
-    SECTION("Empty Body") {
+    SUBCASE("Empty Body") {
         res.status = StatusCode::NO_CONTENT;
         co_await res.send();
 
@@ -69,7 +69,7 @@ ASYNC_TEST_CASE("Response - Chunked Streaming") {
     MockWriter writer;
     Response res(writer);
 
-    SECTION("Manual End") {
+    SUBCASE("Manual End") {
         auto stream = co_await res.send_chunked();
 
         REQUIRE(writer.writes.size() == 1);
@@ -89,7 +89,7 @@ ASYNC_TEST_CASE("Response - Fixed Stream") {
     MockWriter writer;
     Response res(writer);
 
-    SECTION("Streaming exact length") {
+    SUBCASE("Streaming exact length") {
         std::string data = "Hello World";
         auto stream = co_await res.send_fixed(data.size());
 
@@ -111,7 +111,7 @@ ASYNC_TEST_CASE("Response - Cookies with various body types") {
 
     res.add_cookie("session=123");
 
-    SECTION("No Body") {
+    SUBCASE("No Body") {
         res.status = StatusCode::NO_CONTENT;
         co_await res.send();
 
@@ -119,7 +119,7 @@ ASYNC_TEST_CASE("Response - Cookies with various body types") {
         REQUIRE(writer.output.find("Content-Length: 0\r\n") != std::string::npos);
     }
 
-    SECTION("Buffered Body") {
+    SUBCASE("Buffered Body") {
         res.set_body("Buffered Data");
         co_await res.send();
 
@@ -128,7 +128,7 @@ ASYNC_TEST_CASE("Response - Cookies with various body types") {
         REQUIRE(writer.output.find("\r\n\r\nBuffered Data") != std::string::npos);
     }
 
-    SECTION("Chunked Stream") {
+    SUBCASE("Chunked Stream") {
         auto stream = co_await res.send_chunked();
 
         REQUIRE(writer.output.find("Set-Cookie: session=123\r\n") != std::string::npos);
@@ -138,7 +138,7 @@ ASYNC_TEST_CASE("Response - Cookies with various body types") {
         co_await stream.end();
     }
 
-    SECTION("Fixed Stream") {
+    SUBCASE("Fixed Stream") {
         auto stream = co_await res.send_fixed(5);
 
         REQUIRE(writer.output.find("Set-Cookie: session=123\r\n") != std::string::npos);

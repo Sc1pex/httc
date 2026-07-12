@@ -1,9 +1,11 @@
 #pragma once
 
+#include <algorithm>
 #include <format>
 #include <memory>
 #include <memory_resource>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -13,12 +15,9 @@ namespace httc {
 class Headers {
 public:
     Headers();
-    Headers(Headers&&) noexcept;
-    Headers& operator=(Headers&&) noexcept;
-    ~Headers();
 
     // Set a header, replacing any existing entries with the same name.
-    void set(std::string header, std::string value);
+    void set(std::string_view header, std::string_view value);
 
     // Delete every entry with the given header name.
     // Returns true if any entry was deleted.
@@ -26,7 +25,7 @@ public:
 
     // Add a header. If the header already exists, appends the new value to the list of existing
     // values.
-    void add(std::string header, std::string value);
+    void add(std::string_view header, std::string_view value);
 
     // Set a header, replacing any existing entries with the same name.
     // WARNING: The header and value must be valid for the lifetime of this Headers object.
@@ -58,7 +57,7 @@ private:
 
     private:
         template<typename S>
-        size_t hash(const S& str) const {
+        [[nodiscard]] size_t hash(const S& str) const {
             const size_t fnv_prime = 10990515241UL;
             size_t hash = 14695981039346656037UL;
             for (char c : str) {
@@ -87,16 +86,14 @@ private:
 
     private:
         template<typename S1, typename S2>
-        bool compare(const S1& a, const S2& b) const {
+        [[nodiscard]] bool compare(const S1& a, const S2& b) const {
             if (a.size() != b.size()) {
                 return false;
             }
-            for (size_t i = 0; i < a.size(); i++) {
-                if (tolower(a[i]) != tolower(b[i])) {
-                    return false;
-                }
-            }
-            return true;
+            return std::ranges::all_of(std::views::zip(a, b), [](auto tup) {
+                auto [a, b] = tup;
+                return tolower(a) == tolower(b);
+            });
         }
     };
 
@@ -134,7 +131,6 @@ public:
 private:
     std::string_view allocate_string(std::string_view sv);
 
-private:
     std::unordered_multimap<
         std::string_view, std::string_view, CaseInsensitiveHash, CaseInsensitiveSearch>
         m_map;
@@ -147,7 +143,7 @@ private:
 
 template<>
 struct std::formatter<httc::Headers> : std::formatter<std::string> {
-    auto format(const httc::Headers& headers, std::format_context& ctx) const {
+    static auto format(const httc::Headers& headers, std::format_context& ctx) {
         auto out = ctx.out();
         for (const auto& [key, value] : headers.m_map) {
             out = std::format_to(out, "{}: {}\n", key, value);
