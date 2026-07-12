@@ -231,6 +231,7 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_heade
     // Copy the raw header string in the request for storing refrences to it in the headers map
     // NOLINTNEXTLINE(modernize-avoid-c-arrays,cppcoreguidelines-avoid-c-arrays)
     m_req.m_raw_headers = std::make_unique<char[]>(headers_end + 4);
+    // NOLINTNEXTLINE(bugprone-suspicious-stringview-data-usage)
     std::memcpy(m_req.m_raw_headers.get(), m_view.data(), headers_end + 4);
     auto headers = std::string_view(m_req.m_raw_headers.get(), headers_end + 4);
 
@@ -359,6 +360,7 @@ asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::prepare_par
 template<Reader R>
 asio::awaitable<std::optional<RequestParserError>> RequestParser<R>::parse_body_content_length() {
     // We know Content-Length is present because of the state machine
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
     auto content_length_sv = *m_req.headers.get_one("Content-Length");
     std::size_t content_length = 0;
 

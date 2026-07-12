@@ -84,6 +84,10 @@ std::optional<URI> URI::parse(std::string_view url_decoded) {
     return URI{ std::move(*paths), std::move(*query) };
 }
 
+URI URI::root() {
+    return URI{ { "" }, {} };
+}
+
 const std::vector<std::string>& URI::paths() const {
     return m_paths;
 }

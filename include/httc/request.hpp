@@ -53,7 +53,8 @@ private:
     std::optional<asio::any_io_executor> m_thread_pool_executor;
 
     friend asio::awaitable<void> handle_conn(
-        asio::ip::tcp::socket, std::shared_ptr<Router>, ServerConfig, asio::any_io_executor
+        asio::ip::tcp::socket socket, std::shared_ptr<Router> router, ServerConfig cfg,
+        asio::any_io_executor thread_pool_executor
     );
 
     template<Reader R>

@@ -1,5 +1,5 @@
-#include <algorithm>
 #include <doctest/doctest.h>
+#include <algorithm>
 #include <httc/headers.hpp>
 #include <vector>
 
@@ -38,12 +38,12 @@ TEST_CASE("Multiple headers with same name") {
 
     std::vector<std::string> values;
     for (auto it = range.first; it != range.second; ++it) {
-        values.push_back(std::string(it->second));
+        values.emplace_back(it->second);
     }
 
     REQUIRE(values.size() == 2);
-    REQUIRE(std::find(values.begin(), values.end(), "1.1 vegur") != values.end());
-    REQUIRE(std::find(values.begin(), values.end(), "1.1 varnish") != values.end());
+    REQUIRE(std::ranges::find(values, "1.1 vegur") != values.end());
+    REQUIRE(std::ranges::find(values, "1.1 varnish") != values.end());
 }
 
 TEST_CASE("Headers iterator interface") {
@@ -54,7 +54,7 @@ TEST_CASE("Headers iterator interface") {
     std::unordered_map<std::string, std::string> expected = { { "Header-One", "value1" },
                                                               { "Header-Two", "value2" } };
 
-    auto it = std::find_if(headers.begin(), headers.end(), [](const auto& pair) {
+    auto it = std::ranges::find_if(headers, [](const auto& pair) {
         return pair.first == "Header-One";
     });
     REQUIRE(it != headers.end());

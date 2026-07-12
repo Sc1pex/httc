@@ -5,6 +5,29 @@
 
 namespace httc {
 
+void Router::merge_handler(
+    HandlerPath& existing, HandlerFn f, const URI& uri,
+    std::optional<std::vector<std::string>> methods
+) {
+    if (!methods.has_value()) {
+        if (existing.global_handler.has_value()) {
+            throw URICollision(uri, existing.path);
+        }
+
+        existing.global_handler = std::move(f);
+        return;
+    }
+
+    for (const auto& method : *methods) {
+        if (existing.method_handlers.contains(method)) {
+            throw URICollision(uri, existing.path);
+        }
+    }
+    for (const auto& method : *methods) {
+        existing.method_handlers[method] = f;
+    }
+}
+
 void Router::add_route(
     HandlerFn f, std::string_view path, std::optional<std::vector<std::string>> methods
 ) {
@@ -12,29 +35,12 @@ void Router::add_route(
     if (!uri_opt.has_value() || !uri_opt->query().empty()) {
         throw InvalidURI(path);
     }
-    URI uri = *uri_opt;
+    const URI& uri = *uri_opt;
 
-    for (auto& handlers : m_handlers) {
-        auto match = handlers.path.match(uri);
+    for (auto& handler : m_handlers) {
+        auto match = handler.path.match(uri);
         if (match == URIMatch::FULL_MATCH) {
-            if (!methods.has_value()) {
-                if (handlers.global_handler.has_value()) {
-                    throw URICollision(uri, handlers.path);
-                }
-
-                handlers.global_handler = f;
-
-                return;
-            }
-
-            for (const auto& method : *methods) {
-                if (handlers.method_handlers.contains(method)) {
-                    throw URICollision(uri, handlers.path);
-                }
-            }
-            for (const auto& method : *methods) {
-                handlers.method_handlers[method] = f;
-            }
+            merge_handler(handler, std::move(f), uri, std::move(methods));
             return;
         }
     }
@@ -42,23 +48,23 @@ void Router::add_route(
     HandlerPath new_handler(uri);
     if (methods.has_value()) {
         for (const auto& method : *methods) {
-            new_handler.method_handlers[method] = f;
+            new_handler.method_handlers.emplace(method, f);
         }
     } else {
-        new_handler.global_handler = f;
+        new_handler.global_handler = std::move(f);
     }
     m_handlers.push_back(std::move(new_handler));
 }
 
 Router& Router::wrap(MiddlewareFn middleware) {
-    m_middleware.push_back(middleware);
+    m_middleware.push_back(std::move(middleware));
     return *this;
 }
 
 asio::awaitable<void>
     Router::run_handler(HandlerFn f, const URI& handler_path, Request& req, Response& res) const {
     auto req_paths = req.uri.paths();
-    auto handler_paths = handler_path.paths();
+    const auto& handler_paths = handler_path.paths();
     for (size_t i = 0; i < handler_paths.size(); i++) {
         if (handler_paths[i] == "*") {
             req.wildcard_path = "";
@@ -69,18 +75,22 @@ asio::awaitable<void>
                 req.wildcard_path += req_paths[j];
             }
             break;
-        } else if (!handler_paths[i].empty() && handler_paths[i][0] == ':') {
+        }
+
+        if (!handler_paths[i].empty() && handler_paths[i][0] == ':') {
             auto param_name = handler_paths[i].substr(1);
             req.path_params[param_name] = req_paths[i];
         }
     }
 
-    auto& mw_vec = m_middleware;
+    const auto& mw_vec = m_middleware;
     size_t middleware_idx = 0;
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-capturing-lambda-coroutines)
     auto run_middleware = [&](this const auto& self) -> asio::awaitable<void> {
         if (middleware_idx < mw_vec.size()) {
-            auto& mw = mw_vec[middleware_idx];
+            const auto& mw = mw_vec[middleware_idx];
             middleware_idx++;
+            // NOLINTNEXTLINE(cppcoreguidelines-avoid-capturing-lambda-coroutines)
             co_await mw(req, res, [&](const Request&, Response&) -> asio::awaitable<void> {
                 co_await self();
             });
@@ -95,7 +105,7 @@ asio::awaitable<void> Router::handle(Request& req, Response& res) const {
     // [0] = full match
     // [1] = param match
     // [2] = wildcard match
-    const HandlerPath* matches[3] = {};
+    std::array<const HandlerPath*, 3> matches = {};
 
     for (const auto& handler : m_handlers) {
         auto match = handler.path.match(req.uri);
@@ -109,7 +119,7 @@ asio::awaitable<void> Router::handle(Request& req, Response& res) const {
     }
 
     bool method_not_allowed = false;
-    for (const auto m : matches) {
+    for (const auto* const m : matches) {
         if (m != nullptr) {
             if (m->method_handlers.contains(req.method)) {
                 co_return co_await run_handler(
@@ -122,9 +132,10 @@ asio::awaitable<void> Router::handle(Request& req, Response& res) const {
                 co_return co_await run_handler(m->method_handlers.at("GET"), m->path, req, res);
             } else if (req.method == "OPTIONS") {
                 co_return co_await run_handler(
-                    [this, &m]([[maybe_unused]] const Request& req, Response& res)
+                    // NOLINTNEXTLINE(cppcoreguidelines-avoid-capturing-lambda-coroutines)
+                    [&m]([[maybe_unused]] const Request& req, Response& res)
                         -> asio::awaitable<void> {
-                        this->default_options_handler(m, res);
+                        httc::Router::default_options_handler(m, res);
                         co_return;
                     },
                     m->path, req, res
@@ -143,7 +154,7 @@ asio::awaitable<void> Router::handle(Request& req, Response& res) const {
     res.status = StatusCode::NOT_FOUND;
 }
 
-void Router::default_options_handler(const HandlerPath* handler, Response& res) const {
+void Router::default_options_handler(const HandlerPath* handler, Response& res) {
     res.status = StatusCode::OK;
 
     std::string allow;

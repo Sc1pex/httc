@@ -74,7 +74,7 @@ asio::awaitable<Response::FixedStream> Response::send_fixed(std::size_t content_
 }
 
 asio::awaitable<void> Response::ChunkedStream::write(std::string_view chunk) {
-    if (chunk.size() == 0) {
+    if (chunk.empty()) {
         // Do not write empty chunks because that indicates the end of the stream
         co_return;
     }
@@ -121,9 +121,9 @@ awaitable<void> Response::send() {
 
     generate_head();
     std::vector<asio::const_buffer> buffers;
-    buffers.push_back(asio::buffer(m_head_buffer));
+    buffers.emplace_back(asio::buffer(m_head_buffer));
     if (!m_head && !m_body.empty()) {
-        buffers.push_back(asio::buffer(m_body));
+        buffers.emplace_back(asio::buffer(m_body));
     }
     co_return co_await write_to_writer(buffers);
 }

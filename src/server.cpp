@@ -3,6 +3,7 @@
 #include <asio/experimental/awaitable_operators.hpp>
 #include <asio/thread_pool.hpp>
 #include <print>
+#include <utility>
 #include "httc/io.hpp"
 #include "httc/request_parser.hpp"
 #include "httc/response.hpp"
@@ -103,7 +104,7 @@ void bind_and_listen(
     tcp::endpoint endpoint(asio::ip::make_address(addr), port);
     tcp::acceptor acceptor(io_ctx, endpoint);
 
-    asio::co_spawn(io_ctx, listen(std::move(acceptor), router, config), asio::detached);
+    asio::co_spawn(io_ctx, listen(std::move(acceptor), std::move(router), config), asio::detached);
 }
 
 }

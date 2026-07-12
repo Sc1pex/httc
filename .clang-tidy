@@ -15,7 +15,9 @@ Checks: >
   -cppcoreguidelines-non-private-member-variables-in-classes,
   -bugprone-easily-swappable-parameters,
   -clang-analyzer-core.NullDereference,
-  -cppcoreguidelines-avoid-reference-coroutine-parameters
+  -cppcoreguidelines-avoid-reference-coroutine-parameters,
+  -clang-analyzer-core.CallAndMessage,
+  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access
 
 WarningsAsErrors: '*'
 

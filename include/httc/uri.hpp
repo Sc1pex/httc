@@ -19,6 +19,7 @@ class URI {
 public:
     URI() = delete;
 
+    [[nodiscard]] static URI root();
     [[nodiscard]] static std::optional<URI> parse(std::string_view url_decoded);
 
     [[nodiscard]] URIMatch match(const URI& other) const;
@@ -37,7 +38,6 @@ private:
 
     std::vector<std::string> m_paths;
     std::vector<std::pair<std::string, std::string>> m_query;
-    std::string m_buf;
 };
 
 }

@@ -1,16 +1,16 @@
+#include <doctest/doctest.h>
 #include <asio.hpp>
 #include <httc/request.hpp>
 #include <httc/response.hpp>
 #include <httc/router.hpp>
 #include <httc/status.hpp>
 #include "async_test.hpp"
-#include <doctest/doctest.h>
 
 namespace methods = httc::methods;
 using asio::awaitable;
 
 struct MockSocket {
-    asio::awaitable<void> write([[maybe_unused]] std::vector<asio::const_buffer> buffers) {
+    static asio::awaitable<void> write([[maybe_unused]] std::vector<asio::const_buffer> buffers) {
         // Discard all data
         co_return;
     }

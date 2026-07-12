@@ -63,9 +63,15 @@ private:
     void add_route(
         HandlerFn f, std::string_view path, std::optional<std::vector<std::string>> methods
     );
-    void default_options_handler(const HandlerPath* handler, Response& res) const;
     asio::awaitable<void>
         run_handler(HandlerFn f, const URI& handler_path, Request& req, Response& res) const;
+
+    static void merge_handler(
+        HandlerPath& existing, HandlerFn f, const URI& uri,
+        std::optional<std::vector<std::string>> methods
+    );
+
+    static void default_options_handler(const HandlerPath* handler, Response& res);
 
     std::vector<HandlerPath> m_handlers;
     std::vector<MiddlewareFn> m_middleware;
