@@ -8,6 +8,11 @@ project(
 
 include(FetchContent)
 
+find_program(MOLD_PATH mold)
+if(MOLD_PATH)
+    add_link_options(-fuse-ld=mold)
+endif()
+
 FetchContent_Declare(
     asio
     GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
