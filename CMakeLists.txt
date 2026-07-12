@@ -12,6 +12,10 @@ project(
 
 include(FetchContent)
 
+# Store all FetchContent downloads in a shared directory so all build
+# configurations can reuse them and CI caching is straightforward.
+set(FETCHCONTENT_BASE_DIR "${CMAKE_SOURCE_DIR}/.deps" CACHE PATH "" FORCE)
+
 find_program(MOLD_PATH mold)
 if(MOLD_PATH)
     add_link_options(-fuse-ld=mold)
@@ -21,6 +25,7 @@ FetchContent_Declare(
     asio
     GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
     GIT_TAG        asio-1-30-2
+    GIT_SHALLOW    TRUE
 )
 FetchContent_MakeAvailable(asio)
 
@@ -104,6 +109,7 @@ if(HTTC_BUILD_TESTS)
         doctest
         GIT_REPOSITORY https://github.com/doctest/doctest.git
         GIT_TAG        v2.5.3
+        GIT_SHALLOW    TRUE
         SYSTEM
     )
     FetchContent_MakeAvailable(doctest)

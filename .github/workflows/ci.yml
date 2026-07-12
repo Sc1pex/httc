@@ -20,6 +20,13 @@ jobs:
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .deps
+          key: fedora-44-deps-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: fedora-44-deps-
+
       - name: Build all configurations
         run: python3 scripts/build_matrix.py -s none --unity
 
@@ -33,6 +40,13 @@ jobs:
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .deps
+          key: fedora-44-deps-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: fedora-44-deps-
+
       - name: Build and test all configurations
         run: python3 scripts/build_matrix.py --no-examples --test --unity
 
@@ -45,6 +59,13 @@ jobs:
         run: dnf install -y git clang clang-tools-extra cmake ninja-build mold
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Cache FetchContent dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .deps
+          key: fedora-44-deps-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: fedora-44-deps-
 
       - name: Run Clang-Tidy
         run: ./scripts/run_clang_tidy.sh
