@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    container: fedora:44
+    steps:
+      - name: Install dependencies
+        run: dnf install -y git gcc gcc-c++ clang cmake ninja-build mold python3
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Build all configurations
+        run: python3 scripts/build_matrix.py -s none
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    container: fedora:44
+    steps:
+      - name: Install dependencies
+        run: dnf install -y git gcc gcc-c++ clang cmake ninja-build mold python3
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Build and test all configurations
+        run: python3 scripts/build_matrix.py --no-examples --test
+
+  lint:
+    name: Clang-Tidy
+    runs-on: ubuntu-latest
+    container: fedora:44
+    steps:
+      - name: Install dependencies
+        run: dnf install -y git clang clang-tools-extra cmake ninja-build mold
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Run Clang-Tidy
+        run: ./scripts/run_clang_tidy.sh
