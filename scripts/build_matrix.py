@@ -30,7 +30,7 @@ def run_cmd(cmd: List[str], env=None) -> bool:
     except subprocess.CalledProcessError:
         return False
 
-def build_and_test(compiler: str, build_type: str, sanitizer: str, run_tests: bool, clean: bool, no_examples: bool) -> Tuple[bool, str]:
+def build_and_test(compiler: str, build_type: str, sanitizer: str, run_tests: bool, clean: bool, no_examples: bool, unity: bool) -> Tuple[bool, str]:
     """Configures, builds, and tests a single matrix combination."""
     cc = "clang" if compiler == "clang" else "gcc"
     cxx = "clang++" if compiler == "clang" else "g++"
@@ -54,7 +54,8 @@ def build_and_test(compiler: str, build_type: str, sanitizer: str, run_tests: bo
         "-B", build_dir,
         "-S", ".",
         f"-DCMAKE_BUILD_TYPE={build_type.capitalize()}",
-        f"-DHTTC_BUILD_EXAMPLES={'OFF' if no_examples else 'ON'}"
+        f"-DHTTC_BUILD_EXAMPLES={'OFF' if no_examples else 'ON'}",
+        f"-DCMAKE_UNITY_BUILD={'ON' if unity else 'OFF'}",
     ]
 
     # Sanitizer flags (must explicitly clear flags when none is selected to overwrite cached values)
@@ -109,6 +110,7 @@ def main():
     parser.add_argument("-f", "--fail-fast", action="store_true", help="Stop execution at the first failure")
     parser.add_argument("--clean", action="store_true", help="Clean ONLY the build directory of running config(s)")
     parser.add_argument("--no-examples", action="store_true", help="Disable building examples to speed up compilation")
+    parser.add_argument("--unity", action="store_true", help="Enable unity (jumbo) build to reduce compilation time")
     args = parser.parse_args()
 
     # Filter matrix options based on arguments
@@ -121,7 +123,7 @@ def main():
     results = []
 
     for compiler, build_type, sanitizer in matrix:
-        success, reason = build_and_test(compiler, build_type, sanitizer, args.test, args.clean, args.no_examples)
+        success, reason = build_and_test(compiler, build_type, sanitizer, args.test, args.clean, args.no_examples, args.unity)
         results.append((compiler, build_type, sanitizer, success, reason))
 
         if not success and args.fail_fast:

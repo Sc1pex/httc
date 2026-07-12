@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.28)
 
+# Required for Unity builds on C++23 targets: CMake's default module scanning
+# silently disables UNITY_BUILD for any target that uses C++23.
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
 project(
     httc
     VERSION 0.3.0
@@ -67,6 +71,10 @@ list(REMOVE_ITEM GCC_WARNINGS -Wnull-dereference)
 # GCC (specifically with UBSan and -O3) triggers false-positive -Wmismatched-new-delete warnings
 # when tracing Asio's custom coroutine frame aligned allocators back to std::free.
 list(APPEND GCC_WARNINGS -Wno-mismatched-new-delete)
+
+# GCC triggers -Wsubobject-linkage for local lambdas inside C++20 coroutine frames
+# when compiled under Unity builds.
+list(APPEND GCC_WARNINGS -Wno-subobject-linkage)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(httc_warnings INTERFACE ${CLANG_WARNINGS})
