@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Build all configurations
-        run: python3 scripts/build_matrix.py -s none
+        run: python3 scripts/build_matrix.py -s none --unity
 
   test:
     name: Test
@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Build and test all configurations
-        run: python3 scripts/build_matrix.py --no-examples --test
+        run: python3 scripts/build_matrix.py --no-examples --test --unity
 
   lint:
     name: Clang-Tidy
