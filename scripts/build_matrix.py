@@ -7,6 +7,8 @@ import subprocess
 import sys
 from typing import List, Tuple
 
+sys.stdout.reconfigure(line_buffering=True)
+
 # All available options
 ALL_COMPILERS = ["clang", "gcc"]
 ALL_BUILD_TYPES = ["debug", "release"]
