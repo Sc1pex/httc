@@ -21,4 +21,4 @@ Checks: >
 
 WarningsAsErrors: '*'
 
-HeaderFilterRegex: 'include/httc/.*'
+HeaderFilterRegex: '(include/httc/.*|test/.*)'
