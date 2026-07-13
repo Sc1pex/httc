@@ -1,13 +1,14 @@
 #pragma once
-#include <asio.hpp>
 #include <doctest/doctest.h>
+#include <asio.hpp>
 
 template<typename F>
-void run_async_test(F&& test_coroutine_factory) {
+void run_async_test(F test_coroutine_factory) {
     asio::io_context io_ctx;
-    asio::co_spawn(io_ctx, test_coroutine_factory(), [](std::exception_ptr e) {
-        if (e)
+    asio::co_spawn(io_ctx, test_coroutine_factory(), [](const std::exception_ptr& e) {
+        if (e) {
             std::rethrow_exception(e);
+        }
     });
     io_ctx.run();
 }

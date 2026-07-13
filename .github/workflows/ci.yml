@@ -51,7 +51,7 @@ jobs:
         run: python3 scripts/build_matrix.py --no-examples --test --unity
 
   lint:
-    name: Clang-Tidy
+    name: Lint
     runs-on: ubuntu-latest
     container: fedora:44
     steps:
@@ -66,6 +66,9 @@ jobs:
           path: .deps
           key: fedora-44-deps-${{ hashFiles('CMakeLists.txt') }}
           restore-keys: fedora-44-deps-
+
+      - name: Run Clang-Format
+        run: find src include test -name '*.cpp' -o -name '*.hpp' | xargs clang-format --dry-run --Werror
 
       - name: Run Clang-Tidy
         run: ./scripts/run_clang_tidy.sh
